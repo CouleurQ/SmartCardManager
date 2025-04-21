@@ -1,3 +1,4 @@
+internal.txt
 *.user
 build/*
 tmp/*

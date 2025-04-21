@@ -5,6 +5,21 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QMessageBox>
+#include <QFile>
+#include <QDir>
+
+#include <csignal>
+
+
+void signalHandler(int signal) {
+    qDebug() << "Received signal:" << signal << ", cleaning up";
+
+    // remove unix socket for single instance (just in case)
+    const QString socketPath = QDir::tempPath() + QDir::separator() + QCoreApplication::applicationName();
+    QFile::remove(socketPath);
+
+    QCoreApplication::quit();
+}
 
 
 int main(int argc, char *argv[])
@@ -17,19 +32,23 @@ int main(int argc, char *argv[])
     a.setOrganizationName("couleurq@gmail.com");
     a.setOrganizationDomain("yourdomain.com");
 
+    // Install signal handlers
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
+
+    const QString socketPath = QDir::tempPath() + QDir::separator() + QCoreApplication::applicationName();
     QLocalSocket socket;
-    const QString UNIQUE_KEY = "SmartCardManagerSingleInstance";
-        socket.connectToServer(UNIQUE_KEY);
+    socket.connectToServer(socketPath);
 
     if (socket.waitForConnected(500)) {
         // Another instance is already running
-        qDebug() << "Another instance is running";
+        qDebug() << "Switching to already existing instance";
         return 0;
     }
 
     // No other instance is running, so this is the first instance
     QLocalServer server;
-    if (!server.listen(UNIQUE_KEY)) {
+    if (!server.listen(socketPath)) {
         qWarning() << "Cannot start in single instance mode";
     }
 

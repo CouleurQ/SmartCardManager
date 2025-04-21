@@ -2,6 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QStandardItemModel>
+
+#include "logview.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -26,10 +29,10 @@ public:
 private:
     Ui::MainWindow *ui;
 
-    QTabWidget *tabWidget;
-    QTextEdit *logTextEdit;
+    LogView *logView;
 
 private:
+    void onViewCreated();
     void actionLogWindow();
     void actionLogWindowState();
     void actionHelp();
