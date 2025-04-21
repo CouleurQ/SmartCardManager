@@ -5,26 +5,18 @@
 #include <QStandardItemModel>
 #include <QTreeView>
 
+#include "global.h"
+
 
 class LogView : public QObject
 {
     Q_OBJECT
 
 public:
-    enum LogType {
-        Info,
-        Warning,
-        Error,
-        Terminal,
-        CardCmd,
-        CardRsp
-    };
-    Q_ENUM(LogType)
-
-public:
     explicit LogView(QTreeView *view, QObject *parent = nullptr);
 
-    void addLogEntry(const LogType &type, const QString &message);
+    void addLogEntry(LogType type, const QString &message, const QString &ascii = nullptr);
+    void addLogEntry(LogType type, const QByteArray &message);
 
 private:
     QTreeView *treeView;

@@ -27,8 +27,8 @@ LogView::LogView(QTreeView *view, QObject *parent)
     treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     treeView->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     treeView->header()->setSectionResizeMode(QHeaderView::Interactive);
-    treeView->header()->resizeSection(0, 32);
-    treeView->header()->resizeSection(1, 400);
+    treeView->header()->resizeSection(0, 38);
+    treeView->header()->resizeSection(1, 500);
 
     treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(treeView, &QTreeView::customContextMenuRequested, this, &LogView::showContextMenu);
@@ -36,7 +36,7 @@ LogView::LogView(QTreeView *view, QObject *parent)
 }
 
 
-void LogView::addLogEntry(const LogType &type, const QString &message)
+void LogView::addLogEntry(LogType type, const QString &message, const QString &ascii)
 {
     QList<QStandardItem *> items;
 
@@ -46,8 +46,8 @@ void LogView::addLogEntry(const LogType &type, const QString &message)
     messageItem->setFlags(messageItem->flags() & ~Qt::ItemIsEditable);
     QStandardItem *asciiItem = nullptr;
 
-    if (type == CardCmd || type == CardRsp) {
-        asciiItem = new QStandardItem(message);
+    if (type == LogType::CardCmd || type == LogType::CardRsp) {
+        asciiItem = new QStandardItem(ascii);
         asciiItem->setFlags(asciiItem->flags() & ~Qt::ItemIsEditable);
     }
 
@@ -59,6 +59,20 @@ void LogView::addLogEntry(const LogType &type, const QString &message)
     QTimer::singleShot(0, this, [this, lastIndex]() {
         treeView->scrollTo(lastIndex, QAbstractItemView::PositionAtBottom);
     });
+}
+
+
+void LogView::addLogEntry(LogType type, const QByteArray &message)
+{
+    QString ascii;
+    for (char c : message) {
+        if (c >= 0x20 && c <= 0x7E)
+            ascii += QChar(c);
+        else
+            ascii += '.';
+    }
+
+    addLogEntry(type, message.toHex(' ').toUpper(), ascii);
 }
 
 
@@ -93,26 +107,26 @@ QIcon LogView::iconForType(LogType type)
     QString path = "";
 
     switch (type) {
-    case Info:
-        path = ":/res/icons/info.svg";
+    case LogType::Info:
+        path = ":/res/icons/log_info.svg";
         color = QColor(0x0077cc);
         break;
-    case Warning:
-        path = ":/res/icons/warning.svg";
+    case LogType::Warning:
+        path = ":/res/icons/log_warning.svg";
         color = QColor(0xffaa00);
         break;
-    case Error:
-        path = ":/res/icons/error.svg";
+    case LogType::Error:
+        path = ":/res/icons/log_error.svg";
         color = QColor(0xcc0000);
         break;
-    case CardCmd:
-        path = ":/res/icons/cardCommand.svg";
+    case LogType::CardCmd:
+        path = ":/res/icons/log_card_command.svg";
         break;
-    case CardRsp:
-        path = ":/res/icons/cardResponse.svg";
+    case LogType::CardRsp:
+        path = ":/res/icons/log_card_response.svg";
         break;
-    case Terminal:
-        path = ":/res/icons/terminal.svg";
+    case LogType::Terminal:
+        path = ":/res/icons/log_terminal.svg";
         break;
     }
 

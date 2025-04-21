@@ -15,6 +15,8 @@ AboutDialog::AboutDialog(QWidget *parent) :
     setCopyrightInfo(tr("Copyright © 2025 %1").arg(QApplication::organizationName()));
     setDescription(tr("<p>Platform independent application to handle smartcard communication, Java Card managemnt for Linux/Windows/MacOS.</p>"
                                    "<p>Credits: anyone</p>"));
+    ui->iconLabel->setPixmap(QPixmap(":/res/icons/logo.svg").scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
 
 }
 

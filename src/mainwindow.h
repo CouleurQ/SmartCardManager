@@ -3,8 +3,10 @@
 
 #include <QMainWindow>
 #include <QStandardItemModel>
+#include <QComboBox>
 
 #include "logview.h"
+#include "pcscwrapper.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -13,9 +15,6 @@ namespace Ui {
 }
 QT_END_NAMESPACE
 
-
-class QTextEdit;
-class QTabWidget;
 
 
 class MainWindow : public QMainWindow
@@ -29,10 +28,23 @@ public:
 private:
     Ui::MainWindow *ui;
 
+    PcscWrapper *pcsc;
     LogView *logView;
+    QComboBox *cardReaderCombo;
+
+private slots:
+    void onPcscLog(const LogType type, const QString& hexData);
 
 private:
-    void onViewCreated();
+    void updateUiState();
+
+    void sendApdu();
+
+    void actionConnect();
+    void actionDisconnect();
+    void actionReset();
+
+    void actionRefresh();
     void actionLogWindow();
     void actionLogWindowState();
     void actionHelp();
