@@ -1,8 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "scmapplication.h"
 #include "aboutdialog.h"
 #include "logview.h"
 #include "pcscwrapper.h"
+#include "tabhandlersendapdu.h"
 
 #include <QToolBar>
 #include <QTabWidget>
@@ -12,7 +14,6 @@
 #include <QVBoxLayout>
 #include <QApplication>
 #include <QTimer>
-#include <QMessageBox>
 #include <QTreeView>
 #include <QStandardItem>
 #include <QIcon>
@@ -26,20 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // Menubar
-    connect(ui->actionExit, &QAction::triggered, this, &QMainWindow::close);
-    connect(ui->actionLogWindow, &QAction::triggered, this, &MainWindow::actionLogWindow);
-    connect(ui->dockWidget, &QDockWidget::visibilityChanged, this, &MainWindow::actionLogWindowState);
-    connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::actionAbout);
-    connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::actionHelp);
-    connect(ui->actionRefresh, &QAction::triggered, this, &MainWindow::actionRefresh);
-    connect(ui->actionConnect, &QAction::triggered, this, &MainWindow::actionConnect);
-    connect(ui->actionDisconnect, &QAction::triggered, this, &MainWindow::actionDisconnect);
-    connect(ui->actionReset, &QAction::triggered, this, &MainWindow::actionReset);
-    connect(cardReaderCombo, &QComboBox::currentIndexChanged, this, &MainWindow::updateUiState);
-
-    // debug
-    connect(ui->pushButtonSend, &QPushButton::clicked, this, &MainWindow::sendApdu);
+    app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
 
     // Toolbar
     cardReaderCombo = new QComboBox(this);
@@ -69,14 +57,34 @@ MainWindow::MainWindow(QWidget *parent)
     svgIcon->setFixedSize(16, 16);
     ui->statusbar->addPermanentWidget(svgIcon);
 
+    // Splitter
+    ui->splitterTab->setSizes({250, 550});
+
     // Logview
     logView = new LogView(ui->logView, this);
 
+    // TabViews
+    tabSendApdu = new TabHandlerSendApdu(ui->tabSendApdu);
 
-    pcsc = new PcscWrapper(this);
+    // Menubar
+    connect(ui->actionExit, &QAction::triggered, this, &QMainWindow::close);
+    connect(ui->actionLogWindow, &QAction::triggered, this, &MainWindow::actionLogWindow);
+    connect(ui->dockWidget, &QDockWidget::visibilityChanged, this, &MainWindow::actionLogWindowState);
+    connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::actionAbout);
+    connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::actionHelp);
+    connect(ui->actionRefresh, &QAction::triggered, this, &MainWindow::actionRefresh);
+    // Toolbar
+    connect(ui->actionConnect, &QAction::triggered, this, &MainWindow::actionConnect);
+    connect(ui->actionDisconnect, &QAction::triggered, this, &MainWindow::actionDisconnect);
+    connect(ui->actionReset, &QAction::triggered, this, &MainWindow::actionReset);
+    connect(cardReaderCombo, &QComboBox::currentIndexChanged, this, &MainWindow::actionReaderChanged);
 
-    // Pcsc signal slots
-    connect(pcsc, &PcscWrapper::log, this, &MainWindow::onPcscLog);
+
+    // signal slots
+    connect(app->pcsc, &PcscWrapper::log, this, &MainWindow::logString);
+    connect(tabSendApdu, &TabHandlerSendApdu::logBytes, this, &MainWindow::logBytes);
+    connect(tabSendApdu, &TabHandlerSendApdu::logString, this, &MainWindow::logString);
+    connect(tabSendApdu, &TabHandlerSendApdu::update, this, &MainWindow::updateUiState);
 
     // asynchronous call to update the combobox in the toolbar
     QTimer::singleShot(0, this, &MainWindow::actionRefresh);
@@ -91,24 +99,21 @@ MainWindow::~MainWindow()
 }
 
 
-void MainWindow::onPcscLog(const LogType type, const QString& hexData)
+void MainWindow::logBytes(const LogType type, const QByteArray& data)
 {
-    logView->addLogEntry(type, hexData);
+    logView->addLogEntry(type, data);
 }
 
 
-void MainWindow::sendApdu()
+void MainWindow::logString(const LogType type, const QString& data)
 {
-    logView->addLogEntry(LogType::CardCmd, QByteArray::fromHex("00a40400"));
-    QByteArray response = pcsc->send(cardReaderCombo->currentText(), QByteArray::fromHex("00a40400"));
-    if (response.length() >= 2)
-        logView->addLogEntry(LogType::CardRsp, response);
-    updateUiState();
+    logView->addLogEntry(type, data);
 }
+
 
 void MainWindow::updateUiState()
 {
-    bool connected = pcsc->isConnected(cardReaderCombo->currentText());
+    bool connected = app->pcsc->isConnected(app->cardReader);
 
     // Toolbar states
     ui->actionConnect->setEnabled(!connected);
@@ -137,24 +142,24 @@ void MainWindow::updateUiState()
 
 void MainWindow::actionConnect()
 {
-    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Connect card in reader", cardReaderCombo->currentText()));
-    pcsc->connect(cardReaderCombo->currentText());
+    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Connect card in reader", app->cardReader));
+    app->pcsc->connect(app->cardReader);
     updateUiState();
 }
 
 
 void MainWindow::actionDisconnect()
 {
-    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Disconnect card in reader", cardReaderCombo->currentText()));
-    pcsc->disconnect(cardReaderCombo->currentText());
+    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Disconnect card in reader", app->cardReader));
+    app->pcsc->disconnect(app->cardReader);
     updateUiState();
 }
 
 
 void MainWindow::actionReset()
 {
-    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Reset card in reader", cardReaderCombo->currentText()));
-    pcsc->reset(cardReaderCombo->currentText());
+    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Reset card in reader", app->cardReader));
+    app->pcsc->reset(app->cardReader);
     updateUiState();
 }
 
@@ -163,10 +168,17 @@ void MainWindow::actionRefresh()
 {
     cardReaderCombo->clear();
 
-    QStringList readers = pcsc->getReaders();
+    QStringList readers = app->pcsc->getReaders();
     for (QStringList::const_iterator it = readers.constBegin(); it != readers.constEnd(); ++it) {
         cardReaderCombo->addItem(*it);
     }
+    updateUiState();
+}
+
+
+void MainWindow::actionReaderChanged()
+{
+    app->cardReader = cardReaderCombo->currentText();
     updateUiState();
 }
 

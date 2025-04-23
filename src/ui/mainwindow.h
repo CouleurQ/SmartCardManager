@@ -5,8 +5,9 @@
 #include <QStandardItemModel>
 #include <QComboBox>
 
+#include "scmapplication.h"
 #include "logview.h"
-#include "pcscwrapper.h"
+#include "tabhandlersendapdu.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -26,23 +27,24 @@ public:
     ~MainWindow();
 
 private:
+    ScmApplication *app;
     Ui::MainWindow *ui;
 
-    PcscWrapper *pcsc;
     LogView *logView;
     QComboBox *cardReaderCombo;
+    TabHandlerSendApdu *tabSendApdu;
 
 private slots:
-    void onPcscLog(const LogType type, const QString& hexData);
+    void logBytes(const LogType type, const QByteArray& data);
+    void logString(const LogType type, const QString& data);
 
 private:
     void updateUiState();
 
-    void sendApdu();
-
     void actionConnect();
     void actionDisconnect();
     void actionReset();
+    void actionReaderChanged();
 
     void actionRefresh();
     void actionLogWindow();

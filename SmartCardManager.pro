@@ -10,27 +10,37 @@ DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000
 LIBS += -lpcsclite
 INCLUDEPATH += /usr/include/PCSC
 
+INCLUDEPATH += $$PWD/src
 INCLUDEPATH += $$PWD/src/controls
 
 SOURCES += \
-    src/aboutdialog.cpp \
-    src/logview.cpp \
     src/main.cpp \
-    src/mainwindow.cpp \
-    src/pcscwrapper.cpp
+    src/scmapplication.cpp \
+    src/ui/mainwindow.cpp \
+    src/ui/logview.cpp \
+    src/ui/aboutdialog.cpp \
+    src/ui/tabhandlersendapdu.cpp \
+    src/pcscwrapper.cpp \
+    src/utility.cpp
 
 HEADERS += \
-    src/aboutdialog.h \
-    src/controls/hexedit.h \
     src/global.h \
-    src/hexedit.h \
-    src/logview.h \
-    src/mainwindow.h \
-    src/pcscwrapper.h
+    src/scmapplication.h \
+    src/controls/hexedit.h \
+    src/ui/mainwindow.h \
+    src/ui/logview.h \
+    src/ui/aboutdialog.h \
+    src/ui/tabhandlersendapdu.h \
+    src/pcscwrapper.h \
+    src/utility.h
 
 FORMS += \
-    res/forms/aboutdialog.ui \
-    res/forms/mainwindow.ui
+    res/forms/mainwindow.ui \
+    res/forms/aboutdialog.ui
 
 RESOURCES += \
     res/resources.qrc
+
+DISTFILES += \
+    res/apduScheme.json \
+    res/defaultApduList.json

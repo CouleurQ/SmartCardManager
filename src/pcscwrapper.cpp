@@ -56,8 +56,10 @@ bool PcscWrapper::isConnected(const QString &readerName)
 
 QByteArray PcscWrapper::send(const QString &readerName, const QByteArray command)
 {
-    if (hCard == 0)
+    if (hCard == 0) {
+        emit log(LogType::Error, "Card not connected");
         return QByteArray();
+    }
 
     const unsigned char *sendBuffer = reinterpret_cast<const unsigned char*>(command.constData());
     DWORD sendLength = command.size();

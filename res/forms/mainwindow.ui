@@ -34,7 +34,7 @@
       <property name="tabBarAutoHide">
        <bool>false</bool>
       </property>
-      <widget class="QWidget" name="tab">
+      <widget class="QWidget" name="tabSendApdu">
        <attribute name="title">
         <string>Send APDU</string>
        </attribute>
@@ -42,14 +42,14 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayoutTop">
           <item>
-           <widget class="QPushButton" name="pushButtonLoad">
+           <widget class="QPushButton" name="sendApduButtonLoad">
             <property name="text">
              <string>&amp;Load</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButtonSave">
+           <widget class="QPushButton" name="sendApduButtonSave">
             <property name="text">
              <string>S&amp;ave</string>
             </property>
@@ -71,12 +71,24 @@
          </layout>
         </item>
         <item>
-         <widget class="QLineEdit" name="lineEditFilename">
+         <widget class="QLineEdit" name="sendApduLineEditFilename">
           <property name="enabled">
            <bool>false</bool>
           </property>
+          <property name="focusPolicy">
+           <enum>Qt::FocusPolicy::NoFocus</enum>
+          </property>
+          <property name="autoFillBackground">
+           <bool>false</bool>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">color: black;</string>
+          </property>
           <property name="readOnly">
            <bool>true</bool>
+          </property>
+          <property name="placeholderText">
+           <string>no data file loaded</string>
           </property>
          </widget>
         </item>
@@ -88,7 +100,11 @@
           <widget class="QWidget" name="rightPanel_2">
            <layout class="QVBoxLayout" name="verticalLayoutRightLeft">
             <item>
-             <widget class="QListView" name="listViewCommands"/>
+             <widget class="QListView" name="sendApduListView">
+              <property name="editTriggers">
+               <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -102,7 +118,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="lineEditName"/>
+             <widget class="QLineEdit" name="sendApduLineEditCommandName"/>
             </item>
             <item>
              <widget class="QLabel" name="label_3">
@@ -112,7 +128,7 @@
              </widget>
             </item>
             <item>
-             <widget class="HexEdit" name="textEditApdu" native="true">
+             <widget class="HexEdit" name="sendApduHexEditCommandApdu" native="true">
               <property name="font">
                <font>
                 <family>Monospace</family>
@@ -136,13 +152,6 @@
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_2">
               <item>
-               <widget class="QPushButton" name="pushButtonSend">
-                <property name="text">
-                 <string>&amp;Send</string>
-                </property>
-               </widget>
-              </item>
-              <item>
                <spacer name="horizontalSpacer">
                 <property name="orientation">
                  <enum>Qt::Orientation::Horizontal</enum>
@@ -156,16 +165,9 @@
                </spacer>
               </item>
               <item>
-               <widget class="QPushButton" name="pushButtonUpdate">
+               <widget class="QPushButton" name="sendApduButtonSend">
                 <property name="text">
-                 <string>&amp;Update</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="pushButtonAdd">
-                <property name="text">
-                 <string>A&amp;dd</string>
+                 <string>&amp;Send</string>
                 </property>
                </widget>
               </item>
@@ -349,6 +351,9 @@
    </property>
   </action>
   <action name="actionConnect">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../resources.qrc">
      <normaloff>:/res/icons/action_connect.svg</normaloff>:/res/icons/action_connect.svg</iconset>

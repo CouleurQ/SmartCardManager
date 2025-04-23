@@ -1,4 +1,5 @@
-#include "mainwindow.h"
+#include "scmapplication.h"
+#include "ui/mainwindow.h"
 
 #include <QApplication>
 #include <QSharedMemory>
@@ -25,12 +26,12 @@ void signalHandler(int signal) {
 int main(int argc, char *argv[])
 {
     qDebug() << "Starting SmartCardManager";
-    QApplication a(argc, argv);
+    ScmApplication application(argc, argv);
 
-    a.setApplicationName("SmartCardManager");
-    a.setApplicationVersion("0.1");
-    a.setOrganizationName("couleurq@gmail.com");
-    a.setOrganizationDomain("yourdomain.com");
+    application.setApplicationName("SmartCardManager");
+    application.setApplicationVersion("0.1");
+    application.setOrganizationName("couleurq@gmail.com");
+    application.setOrganizationDomain("yourdomain.com");
 
     // Install signal handlers
     signal(SIGINT, signalHandler);
@@ -70,5 +71,5 @@ int main(int argc, char *argv[])
     });
 
 
-    return a.exec();
+    return application.exec();
 }
