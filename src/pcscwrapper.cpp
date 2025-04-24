@@ -85,6 +85,9 @@ QByteArray PcscWrapper::send(const QString &readerName, const QByteArray command
 
 QStringList PcscWrapper::getReaders()
 {
+    if (getContext() == 0)
+        return QStringList();
+
     QStringList cardReaderList;
 
     // Get the list of readers

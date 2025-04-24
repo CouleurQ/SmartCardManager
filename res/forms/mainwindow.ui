@@ -101,8 +101,17 @@
            <layout class="QVBoxLayout" name="verticalLayoutRightLeft">
             <item>
              <widget class="QListView" name="sendApduListView">
+              <property name="acceptDrops">
+               <bool>true</bool>
+              </property>
               <property name="editTriggers">
-               <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
+               <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+              </property>
+              <property name="showDropIndicator" stdset="0">
+               <bool>true</bool>
+              </property>
+              <property name="dragDropMode">
+               <enum>QAbstractItemView::DragDropMode::DropOnly</enum>
               </property>
              </widget>
             </item>

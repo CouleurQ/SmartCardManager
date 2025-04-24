@@ -9,6 +9,7 @@
 #include <QStandardItemModel>
 #include <QStandardItem>
 #include <QMessageBox>
+#include <QMenu>
 
 
 
@@ -27,20 +28,52 @@ TabHandlerSendApdu::TabHandlerSendApdu(QWidget *tabWidget, QWidget *parent)
 
     QStandardItemModel *model = new QStandardItemModel(this);
     listView->setModel(model);
+    listView->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    connect(buttonLoad, &QPushButton::clicked, this, &TabHandlerSendApdu::sendApduLoad);
-    connect(buttonSave, &QPushButton::clicked, this, &TabHandlerSendApdu::sendApduSave);
-    connect(buttonSend, &QPushButton::clicked, this, &TabHandlerSendApdu::sendApduSend);
+    connect(buttonLoad, &QPushButton::clicked, this, &TabHandlerSendApdu::buttonActionLoad);
+    connect(buttonSave, &QPushButton::clicked, this, &TabHandlerSendApdu::buttonActionSave);
+    connect(buttonSend, &QPushButton::clicked, this, &TabHandlerSendApdu::buttonActionSend);
     connect(listView, &QListView::clicked, this, &TabHandlerSendApdu::onItemClicked);
     connect(listView, &QListView::doubleClicked, this, &TabHandlerSendApdu::onItemDoubleClicked);
+    connect(listView, &QListView::customContextMenuRequested, this, &TabHandlerSendApdu::showContextMenu);
+    connect(listView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TabHandlerSendApdu::onItemSelected);
     connect(lineEditCommandName, &QLineEdit::textChanged, this, &TabHandlerSendApdu::updateCommandName);
-    //connect(hexEditCommandApdu, &HexEdit::textChanged, this, &TabHandlerSendApdu::updateCommandApdu);
-    connect(listView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &TabHandlerSendApdu::onItemSelected);
+    connect(hexEditCommandApdu, &HexEdit::textChanged, this, &TabHandlerSendApdu::updateCommandApdu);
+
+    listView->installEventFilter(this);
+
+    setAcceptDrops(true);
 }
 
 
 TabHandlerSendApdu::~TabHandlerSendApdu()
 {
+}
+
+
+void TabHandlerSendApdu::showContextMenu(const QPoint &pos)
+{
+    QModelIndex index = listView->indexAt(pos);
+
+    QMenu menu;
+    if (index.isValid()) {
+        // Item right click
+        menu.addAction("Delete", this, &TabHandlerSendApdu::buttonActionDelete);
+        menu.addAction("Duplicate", this, &TabHandlerSendApdu::buttonActionDuplicate);
+        menu.addSeparator();
+        menu.addAction("Move up", this, &TabHandlerSendApdu::buttonActionUp);
+        menu.addAction("Move down", this, &TabHandlerSendApdu::buttonActionDown);
+    } else {
+        // ListView right click
+        menu.addAction("Add command", this, &TabHandlerSendApdu::buttonActionAdd);
+        menu.addSeparator();
+        menu.addAction("Load", this, &TabHandlerSendApdu::buttonActionLoad);
+        menu.addAction("Save", this, &TabHandlerSendApdu::buttonActionSave);
+        menu.addSeparator();
+        menu.addAction("Clear commands", this, &TabHandlerSendApdu::buttonActionClear);
+    }
+
+    menu.exec(listView->viewport()->mapToGlobal(pos));
 }
 
 
@@ -59,8 +92,9 @@ void TabHandlerSendApdu::updateCommandName(const QString &newText)
 }
 
 
-void TabHandlerSendApdu::updateCommandApdu(const QString &newText)
+void TabHandlerSendApdu::updateCommandApdu()
 {
+    QString newText = hexEditCommandApdu->toPlainText();
     if (newText.length() == 0)
         return;
 
@@ -69,7 +103,7 @@ void TabHandlerSendApdu::updateCommandApdu(const QString &newText)
     if (currentIndex.isValid()) {
         QStandardItem *item = qobject_cast<QStandardItemModel*>(listView->model())->itemFromIndex(currentIndex);
         if (item)
-            item->setText(Utility::hexStringToByteArray(newText));
+            item->setData(Utility::hexStringToByteArray(newText), Qt::UserRole);
     }
 }
 
@@ -85,15 +119,17 @@ void TabHandlerSendApdu::onItemClicked(const QModelIndex &index)
 }
 
 
-void TabHandlerSendApdu::onItemSelected(const QItemSelection &selected, const QItemSelection &deselected)
+void TabHandlerSendApdu::onItemSelected(const QModelIndex &current, const QModelIndex &previous)
 {
-    (void) deselected;
+    (void) previous;
 
-    if (!selected.isEmpty()) {
-        QModelIndex selectedIndex = selected.indexes().first();
-
-        if (selectedIndex.isValid())
-            onItemClicked(selectedIndex);
+    if (current.isValid()) {
+        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+        if (model) {
+            QStandardItem *item = model->itemFromIndex(current);
+            if (item)
+                onItemClicked(item->index());
+        }
     }
 }
 
@@ -101,11 +137,112 @@ void TabHandlerSendApdu::onItemSelected(const QItemSelection &selected, const QI
 void TabHandlerSendApdu::onItemDoubleClicked(const QModelIndex &index)
 {
     onItemClicked(index);
-    sendApduSend();
+    buttonActionSend();
 }
 
 
-void TabHandlerSendApdu::sendApduLoad()
+void TabHandlerSendApdu::buttonActionClear()
+{
+    qobject_cast<QStandardItemModel *>(listView->model())->clear();
+    listView->clearSelection();
+}
+
+
+void TabHandlerSendApdu::buttonActionDelete()
+{
+    QModelIndex currentIndex = listView->selectionModel()->currentIndex();
+
+    if (currentIndex.isValid()) {
+        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+        if (model)
+            model->removeRow(currentIndex.row());
+    }
+}
+
+
+void TabHandlerSendApdu::buttonActionDuplicate()
+{
+    QModelIndex currentIndex = listView->selectionModel()->currentIndex();
+
+    if (currentIndex.isValid()) {
+        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+        if (model) {
+            // add item
+            QStandardItem *item = qobject_cast<QStandardItemModel*>(listView->model())->itemFromIndex(currentIndex);
+
+            QString itemText = item->text() + "_copy";
+            QByteArray itemData = item->data(Qt::UserRole).toByteArray();
+            _buttonActionAdd(itemText, itemData);
+        }
+    }
+}
+
+
+void TabHandlerSendApdu::buttonActionUp()
+{
+    QModelIndex currentIndex = listView->selectionModel()->currentIndex();
+
+    if (currentIndex.isValid()) {
+        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+        if (model) {
+            int row = currentIndex.row();
+
+            if (row > 0) {
+                // Swap the rows (move item up by 1)
+                model->insertRow(row - 1, model->takeRow(row));
+                listView->setCurrentIndex(model->index(row - 1, 0));
+            }
+        }
+    }
+}
+
+
+void TabHandlerSendApdu::buttonActionDown()
+{
+    QModelIndex currentIndex = listView->selectionModel()->currentIndex();
+
+    if (currentIndex.isValid()) {
+        QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+        if (model) {
+            int row = currentIndex.row();
+
+            if (row < model->rowCount() - 1) {
+                // Swap the rows (move item down by 1)
+                model->insertRow(row + 1, model->takeRow(row));
+                listView->setCurrentIndex(model->index(row + 1, 0));
+            }
+        }
+    }
+}
+
+
+void TabHandlerSendApdu::buttonActionAdd()
+{
+    _buttonActionAdd("new command", QByteArray());
+}
+
+
+void TabHandlerSendApdu::_buttonActionAdd(const QString &cmdName, const QByteArray &cmdData)
+{
+    QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+
+    // add item
+    QStandardItem *item = new QStandardItem(cmdName);
+    item->setData(cmdData, Qt::UserRole);
+    model->appendRow(item);
+
+    // select item
+    QModelIndex index = model->index(model->rowCount() - 1, 0);
+    listView->setCurrentIndex(index);
+    listView->scrollTo(index);
+    listView->selectionModel()->select(index, QItemSelectionModel::ClearAndSelect);
+
+    lineEditCommandName->setFocus();
+    lineEditCommandName->selectAll();
+}
+
+
+void TabHandlerSendApdu::buttonActionLoad()
 {
     // Select a JSON file
     QString filePath = QFileDialog::getOpenFileName(nullptr, "Select SendApdu JSON File", "", "JSON Files (*.json);;All Files (*)");
@@ -113,6 +250,12 @@ void TabHandlerSendApdu::sendApduLoad()
     if (filePath.isEmpty())
         return;
 
+    _buttonActionLoad(filePath);
+}
+
+
+void TabHandlerSendApdu::_buttonActionLoad(const QString &filePath)
+{
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
         emit logString(LogType::Error, QString("%1: %2").arg("Failed to open file", file.errorString()));
@@ -134,6 +277,9 @@ void TabHandlerSendApdu::sendApduLoad()
         QString version = jsonObject["version"].toString();
         if (version != "1.0")
             throw std::runtime_error(QString("Invalid json version: " + version).toStdString());
+
+        // file seems valid - remove the old entries
+        buttonActionClear();
 
         // Now handle the apduList, which is an array
         QJsonArray apduList = jsonObject["apduList"].toArray();
@@ -160,7 +306,7 @@ void TabHandlerSendApdu::sendApduLoad()
 }
 
 
-void TabHandlerSendApdu::sendApduSave()
+void TabHandlerSendApdu::buttonActionSave()
 {
     QString filePath = QFileDialog::getSaveFileName(this, "Save File", "", "JSON Files (*.json);;All Files (*)");
 
@@ -211,14 +357,14 @@ void TabHandlerSendApdu::sendApduSave()
 
         file.close();
 
-        QMessageBox::critical(this, "Success", "File saved successfully.");
+        QMessageBox::information(this, "Success", "File saved successfully.");
     } catch (std::exception e) {
         emit logString(LogType::Error, e.what());
     }
 }
 
 
-void TabHandlerSendApdu::sendApduSend()
+void TabHandlerSendApdu::buttonActionSend()
 {
     QByteArray cmd = Utility::hexStringToByteArray(hexEditCommandApdu->toPlainText());
     if (cmd.length() == 0)
@@ -234,3 +380,30 @@ void TabHandlerSendApdu::sendApduSend()
 }
 
 
+bool TabHandlerSendApdu::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == listView) {
+        if (event->type() == QEvent::DragEnter) {
+            QDragEnterEvent *dragEvent = static_cast<QDragEnterEvent *>(event);
+            if (dragEvent->mimeData()->hasUrls()) {
+                dragEvent->acceptProposedAction();
+                return true;
+            }
+        } else if (event->type() == QEvent::Drop) {
+            QDropEvent *dropEvent = static_cast<QDropEvent *>(event);
+            QStringList filePaths;
+            for (const QUrl &url : dropEvent->mimeData()->urls()) {
+                if (url.isLocalFile()) {
+                    filePaths << url.toLocalFile();
+                }
+            }
+            if (!filePaths.isEmpty())
+                _buttonActionLoad(*filePaths.begin());
+
+            dropEvent->acceptProposedAction();
+            return true;
+        }
+    }
+
+    return QWidget::eventFilter(obj, event);
+}

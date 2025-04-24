@@ -20,16 +20,29 @@ public:
     explicit TabHandlerSendApdu(QWidget *tabWidget, QWidget *parent = nullptr);
     ~TabHandlerSendApdu();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event);
+
 private:
-    void sendApduLoad();
-    void sendApduSave();
-    void sendApduSend();
     void onItemSelectionChanged(const QModelIndex &current, const QModelIndex &previous);
-    void onItemSelected(const QItemSelection &selected, const QItemSelection &deselected);
+    void onItemSelected(const QModelIndex &current, const QModelIndex &previous);
     void onItemClicked(const QModelIndex &index);
     void onItemDoubleClicked(const QModelIndex &index);
     void updateCommandName(const QString &newText);
-    void updateCommandApdu(const QString &newText);
+    void updateCommandApdu();
+    void showContextMenu(const QPoint &pos);
+
+    void buttonActionLoad();
+    void _buttonActionLoad(const QString &filePath);
+    void buttonActionSave();
+    void buttonActionSend();
+    void buttonActionAdd();
+    void _buttonActionAdd(const QString &cmdName, const QByteArray &cmdData);
+    void buttonActionClear();
+    void buttonActionDelete();
+    void buttonActionDuplicate();
+    void buttonActionUp();
+    void buttonActionDown();
 
 private:
     ScmApplication *app;
