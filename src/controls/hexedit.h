@@ -8,7 +8,9 @@
 
 
 class HexEdit : public QTextEdit {
+
     Q_OBJECT
+
 public:
     explicit HexEdit(QWidget* parent = nullptr) : QTextEdit(parent) {
         setAcceptRichText(false);
@@ -17,85 +19,121 @@ public:
 protected:
     void keyPressEvent(QKeyEvent* event) override
     {
-        QString input = event->text().toUpper();
-        if (input.isEmpty()) {
-            QTextEdit::keyPressEvent(event);  // Allow control keys (Backspace, arrows, etc.)
+        if (event->matches(QKeySequence::Copy) ||
+            event->matches(QKeySequence::Paste) ||
+            event->matches(QKeySequence::Cut) ||
+            event->matches(QKeySequence::SelectAll)) {
+            QTextEdit::keyPressEvent(event);
+            reformatText();
             return;
         }
 
-        QChar ch = input[0];
-        if (ch.isDigit() || (ch >= 'A' && ch <= 'F')) {
-            insertHexChar(ch);
+        QString input = event->text().toUpper();
+        if (input.isEmpty()) {
+            QTextEdit::keyPressEvent(event);
+            return;
+        }
+
+        QChar chr = input[0];
+        if (chr.isDigit() || (chr >= 'A' && chr <= 'F')) {
+            insertHexChar(chr);
         } else if (event->key() == Qt::Key_Backspace) {
             handleBackspace();
         } else if (event->key() == Qt::Key_Delete) {
-            // TODO
+            handleDelete();
         }
     }
 
     void insertFromMimeData(const QMimeData* source) override
     {
-        QString pasted = source->text().toUpper();
-        QString clean;
-        for (QChar ch : pasted) {
-            if (ch.isDigit() || (ch >= 'A' && ch <= 'F')) {
-                clean += ch;
-            }
-        }
-        for (QChar ch : clean) {
-            insertHexChar(ch);
+        for (QChar chr : source->text().toUpper()) {
+            if (chr.isDigit() || (chr >= 'A' && chr <= 'F'))
+                insertHexChar(chr);
         }
     }
 
 private:
     void insertHexChar(QChar ch)
     {
-        QString current = toPlainText();
-        QString raw = current;
-        raw.remove(' ');
+        QTextCursor cursor = textCursor();
+        int position = cursor.position();
 
-        raw.append(ch);
+        // Insert the hex character
+        cursor.insertText(ch);
 
-        // Reformat: insert space every 2 characters
-        QString formatted;
-        for (int i = 0; i < raw.length(); i++) {
-            if (i > 0 && i % 2 == 0) formatted += ' ';
-            formatted += raw[i];
+        reformatText();
+
+        if ((position % 3) == 2) {
+            cursor.setPosition(position + 2);  // Position after byte (space added)
+        } else {
+            cursor.setPosition(position + 1);  // Position after nibble
         }
-
-        // Block signals and update
-        this->blockSignals(true);
-        this->setPlainText(formatted);
-        this->blockSignals(false);
-
-        // Move cursor to end
-        QTextCursor cursor = this->textCursor();
-        cursor.movePosition(QTextCursor::End);
-        this->setTextCursor(cursor);
+        setTextCursor(cursor);
     }
 
     void handleBackspace() {
-        QString current = toPlainText();
-        QString raw = current;
-        raw.remove(' ');
-        if (!raw.isEmpty()) {
-            raw.chop(1);
+        QTextCursor cursor = textCursor();
+        int position = cursor.position();
+        int newPosition = position;
+
+        // Check if there is any selected text and delete it
+        if (cursor.hasSelection()) {
+            cursor.removeSelectedText();  // Remove selected text
+        } else {
+            if (position > 0) {
+                cursor.deletePreviousChar();
+                newPosition--;
+
+                // Check if the previous character is a space
+                if (position % 3 != 2) {
+                    cursor.deletePreviousChar();
+                    newPosition--;
+                }
+            }
         }
 
-        // Reformat again
+        reformatText();
+
+        cursor.setPosition((newPosition > 0) ? newPosition : 0);
+        setTextCursor(cursor);
+    }
+
+    void handleDelete() {
+        QTextCursor cursor = textCursor();
+        int position = cursor.position();
+        int newPosition = position;
+
+        // Check if there is any selected text and delete it
+        if (cursor.hasSelection()) {
+            cursor.removeSelectedText();  // Remove selected text
+        } else {
+            if (position > 0) {
+                qDebug() << position << " - " << position % 3;
+                cursor.deleteChar();
+
+                // Check if the previous character is a space
+                if (position % 3 == 2)
+                    cursor.deleteChar();
+            }
+        }
+
+        reformatText();
+
+        cursor.setPosition(newPosition);
+        setTextCursor(cursor);
+    }
+
+    void reformatText() {
+        // properly re-format with the spaces
+        QString raw = toPlainText().remove(' ');
         QString formatted;
         for (int i = 0; i < raw.length(); i++) {
             if (i > 0 && i % 2 == 0) formatted += ' ';
             formatted += raw[i];
         }
-
-        this->blockSignals(true);
-        this->setPlainText(formatted);
-        this->blockSignals(false);
-
-        QTextCursor cursor = this->textCursor();
-        cursor.movePosition(QTextCursor::End);
-        this->setTextCursor(cursor);
+        blockSignals(true);
+        setPlainText(formatted);
+        blockSignals(false);
     }
 };
 
