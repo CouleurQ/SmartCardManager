@@ -93,7 +93,10 @@ QStringList PcscWrapper::getReaders()
     // Get the list of readers
     DWORD dwReaders = 0;
     LONG rv = SCardListReaders(getContext(), NULL, NULL, &dwReaders);
-    if (rv != SCARD_S_SUCCESS) {
+    if (rv == 0x8010002e) {
+        emit log(LogType::Warning, "No PC/SC readers connected");
+        return QStringList();
+    } else if (rv != SCARD_S_SUCCESS) {
         emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to get reader list size", QString::number(rv, 16)));
         return QStringList();
     }
