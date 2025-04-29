@@ -1,7 +1,9 @@
-#ifndef COMMAND_SEND_BYTES_H
-#define COMMAND_SEND_BYTES_H
+#ifndef VIEW_SEND_BYTES_H
+#define VIEW_SEND_BYTES_H
 
 #include <QWidget>
+
+#include "commands/view.h"
 
 
 namespace Ui {
@@ -9,15 +11,14 @@ class ViewSendBytes;
 }
 
 
-class ViewSendBytes : public QWidget {
+class ViewSendBytes : public View {
     Q_OBJECT
 
 public:
     explicit ViewSendBytes(QWidget *parent = nullptr);
     ~ViewSendBytes();
 
-private:
-    void updateCommand();
+    void sendUpdateCommand();
 
 private:
     Ui::ViewSendBytes *ui;

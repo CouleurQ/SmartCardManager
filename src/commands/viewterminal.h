@@ -1,7 +1,9 @@
-#ifndef COMMAND_TERMINAL_H
-#define COMMAND_TERMINAL_H
+#ifndef VIEW_TERMINAL_H
+#define VIEW_TERMINAL_H
 
 #include <QWidget>
+
+#include "commands/view.h"
 
 
 namespace Ui {
@@ -9,12 +11,14 @@ class ViewTerminal;
 }
 
 
-class ViewTerminal : public QWidget {
+class ViewTerminal : public View {
     Q_OBJECT
 
 public:
     explicit ViewTerminal(QWidget *parent = nullptr);
     ~ViewTerminal();
+
+    void sendUpdateCommand() {};
 
 private:
     Ui::ViewTerminal *ui;

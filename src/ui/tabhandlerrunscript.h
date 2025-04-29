@@ -5,9 +5,12 @@
 #include <QWidget>
 #include <QStackedWidget>
 #include <QPushButton>
+#include <QListWidget>
 
 #include "global.h"
 #include "scmapplication.h"
+#include "commands/view.h"
+#include "commands/command.h"
 
 
 class TabHandlerRunScript : public QWidget
@@ -19,14 +22,18 @@ public:
     ~TabHandlerRunScript();
 
 private:
-    void replaceCurrentView(QWidget *view);
+    void replaceCurrentView(View *view);
     void buttonActionAdd();
 
 private:
     ScmApplication *app;
 
+    QListView *listView;
     QStackedWidget *stackedWidget;
     QPushButton *buttonAdd;
+
+private slots:
+    void receiveUpdateCommand(QSharedPointer<Command> obj);
 
 signals:
     void logBytes(LogType type, const QByteArray& hexBytes);

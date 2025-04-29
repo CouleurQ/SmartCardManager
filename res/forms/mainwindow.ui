@@ -261,7 +261,7 @@
           <widget class="QWidget" name="rightPanel_2">
            <layout class="QVBoxLayout" name="verticalLayoutRightLeft">
             <item>
-             <widget class="QListView" name="sendApduListView">
+             <widget class="QListView" name="runScriptListView">
               <property name="acceptDrops">
                <bool>true</bool>
               </property>
@@ -330,7 +330,7 @@
                </sizepolicy>
               </property>
               <property name="frameShape">
-               <enum>QFrame::Shape::Box</enum>
+               <enum>QFrame::Shape::NoFrame</enum>
               </property>
               <property name="currentIndex">
                <number>-1</number>

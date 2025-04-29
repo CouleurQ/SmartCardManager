@@ -1,6 +1,7 @@
 #ifndef HEXEDIT_H
 #define HEXEDIT_H
 
+#include "qapplication.h"
 #include <QTextEdit>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -25,6 +26,14 @@ protected:
             event->matches(QKeySequence::SelectAll)) {
             QTextEdit::keyPressEvent(event);
             reformatText();
+            return;
+        }
+
+        if (event->key() == Qt::Key_Tab) {
+            QWidget* nextWidget = getNextFocusableWidget();
+            if (nextWidget)
+                nextWidget->setFocus();
+            event->accept();
             return;
         }
 
@@ -53,6 +62,40 @@ protected:
     }
 
 private:
+    QWidget* getNextFocusableWidget() {
+        QWidget* parentWidget = this->parentWidget();
+        if (!parentWidget)
+            return nullptr;
+
+        QList<QWidget*> focusableChildren = getFocusableWidgets();
+        if (focusableChildren.isEmpty())
+            return nullptr;
+
+        bool foundCurrentWidget = false;
+        for (QWidget* child : focusableChildren) {
+            if (foundCurrentWidget)
+                return child;
+            else if (child == this)
+                foundCurrentWidget = true;
+        }
+
+        return nullptr;
+    }
+
+    QList<QWidget*> getFocusableWidgets() {
+        QWidget* parentWidget = this->parentWidget();
+        if (!parentWidget)
+            return {};
+
+        QList<QWidget*> focusableWidgets;
+        for (QWidget* child : parentWidget->findChildren<QWidget*>()) {
+            if (child->isEnabled() && child->isVisible() && child->focusPolicy() != Qt::NoFocus)
+                focusableWidgets.append(child);
+        }
+
+        return focusableWidgets;
+    }
+
     void insertHexChar(QChar ch)
     {
         QTextCursor cursor = textCursor();

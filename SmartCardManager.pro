@@ -14,6 +14,7 @@ INCLUDEPATH += $$PWD/src
 INCLUDEPATH += $$PWD/src/controls
 
 SOURCES += \
+    src/commands/view.cpp \
     src/commands/viewapdu.cpp \
     src/commands/viewsendbytes.cpp \
     src/commands/viewterminal.cpp \
@@ -28,6 +29,11 @@ SOURCES += \
     src/utility.cpp
 
 HEADERS += \
+    src/commands/command.h \
+    src/commands/commandapdu.h \
+    src/commands/commandsendbytes.h \
+    src/commands/commandterminal.h \
+    src/commands/view.h \
     src/commands/viewapdu.h \
     src/commands/viewsendbytes.h \
     src/commands/viewterminal.h \

@@ -1,23 +1,31 @@
 #include "viewsendbytes.h"
 #include "ui_viewsendbytes.h"
+#include "commandsendbytes.h"
+#include "utility.h"
 
-#include <QDebug>
-#include <QResizeEvent>
+#include <QTimer>
 
 
 ViewSendBytes::ViewSendBytes(QWidget *parent) :
-    QWidget(parent),
+    View(parent),
     ui(new Ui::ViewSendBytes)
 {
     ui->setupUi(this);
 
-    ui->commandLineEditCommandName->setText("Send bytes command");
+    ui->lineEditCommandName->setText("Send bytes");
 
-    connect(ui->commandLineEditCommandName, &QLineEdit::textChanged, this, &ViewSendBytes::updateCommand);
-    connect(ui->commandHexEditCommandApdu, &HexEdit::textChanged, this, &ViewSendBytes::updateCommand);
-    connect(ui->commandLineEditExpectedResponse, &HexEdit::textChanged, this, &ViewSendBytes::updateCommand);
+    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &ViewSendBytes::sendUpdateCommand);
+    connect(ui->hexEditCommandApdu, &HexEdit::textChanged, this, &ViewSendBytes::sendUpdateCommand);
+    connect(ui->hexEditExpectedResponse, &HexEdit::textChanged, this, &ViewSendBytes::sendUpdateCommand);
 
-    ui->commandLineEditCommandName->setFocus();
+    // expected response is single line
+    ui->hexEditExpectedResponse->setLineWrapMode(QTextEdit::NoWrap);
+    ui->hexEditExpectedResponse->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    // set the focus (delayed)
+    QTimer::singleShot(0, this, [this]() {
+        ui->lineEditCommandName->setFocus();
+    });
 }
 
 
@@ -27,7 +35,13 @@ ViewSendBytes::~ViewSendBytes()
 }
 
 
-void ViewSendBytes::updateCommand()
+void ViewSendBytes::sendUpdateCommand()
 {
-    qDebug() << "update Command";
+    QSharedPointer<CommandSendBytes> obj = QSharedPointer<CommandSendBytes>::create();
+
+    obj->commandName = ui->lineEditCommandName->text();
+    obj->commandData = Utility::hexStringToByteArray(ui->hexEditCommandApdu->toPlainText());
+    obj->expectedResponse = Utility::hexStringToByteArray(ui->hexEditExpectedResponse->toPlainText());
+
+    emit notifyUpdateCommand(obj);
 }

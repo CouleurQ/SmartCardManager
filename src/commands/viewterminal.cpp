@@ -3,7 +3,7 @@
 
 
 ViewTerminal::ViewTerminal(QWidget *parent) :
-    QWidget(parent),
+    View(parent),
     ui(new Ui::ViewTerminal)
 {
     ui->setupUi(this);
