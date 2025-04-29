@@ -8,6 +8,7 @@
 #include "scmapplication.h"
 #include "logview.h"
 #include "tabhandlersendapdu.h"
+#include "tabhandlerrunscript.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -33,6 +34,7 @@ private:
     LogView *logView;
     QComboBox *cardReaderCombo;
     TabHandlerSendApdu *tabSendApdu;
+    TabHandlerRunScript *tabRunScript;
 
 private slots:
     void logBytes(const LogType type, const QByteArray& data);

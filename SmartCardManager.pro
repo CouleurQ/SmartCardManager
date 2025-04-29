@@ -14,29 +14,40 @@ INCLUDEPATH += $$PWD/src
 INCLUDEPATH += $$PWD/src/controls
 
 SOURCES += \
+    src/commands/viewapdu.cpp \
+    src/commands/viewsendbytes.cpp \
+    src/commands/viewterminal.cpp \
     src/main.cpp \
     src/scmapplication.cpp \
     src/ui/mainwindow.cpp \
     src/ui/logview.cpp \
     src/ui/aboutdialog.cpp \
+    src/ui/tabhandlerrunscript.cpp \
     src/ui/tabhandlersendapdu.cpp \
     src/pcscwrapper.cpp \
     src/utility.cpp
 
 HEADERS += \
+    src/commands/viewapdu.h \
+    src/commands/viewsendbytes.h \
+    src/commands/viewterminal.h \
     src/global.h \
     src/scmapplication.h \
     src/controls/hexedit.h \
     src/ui/mainwindow.h \
     src/ui/logview.h \
     src/ui/aboutdialog.h \
+    src/ui/tabhandlerrunscript.h \
     src/ui/tabhandlersendapdu.h \
     src/pcscwrapper.h \
     src/utility.h
 
 FORMS += \
     res/forms/mainwindow.ui \
-    res/forms/aboutdialog.ui
+    res/forms/aboutdialog.ui \
+    res/forms/viewapdu.ui \
+    res/forms/viewsendbytes.ui \
+    res/forms/viewterminal.ui
 
 RESOURCES += \
     res/resources.qrc

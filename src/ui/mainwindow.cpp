@@ -65,6 +65,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // TabViews
     tabSendApdu = new TabHandlerSendApdu(ui->tabSendApdu);
+    tabRunScript = new TabHandlerRunScript(ui->tabRunScript);
 
     // Menubar
     connect(ui->actionExit, &QAction::triggered, this, &QMainWindow::close);
