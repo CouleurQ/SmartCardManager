@@ -7,7 +7,7 @@
 
 #include "scmapplication.h"
 #include "logview.h"
-#include "tabhandlersendapdu.h"
+#include "tabhandlersendcommand.h"
 #include "tabhandlerrunscript.h"
 
 
@@ -33,7 +33,7 @@ private:
 
     LogView *logView;
     QComboBox *cardReaderCombo;
-    TabHandlerSendApdu *tabSendApdu;
+    TabHandlerSendCommand *tabSendCommand;
     TabHandlerRunScript *tabRunScript;
 
 private slots:

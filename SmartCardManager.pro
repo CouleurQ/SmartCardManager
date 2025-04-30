@@ -24,8 +24,8 @@ SOURCES += \
     src/ui/logview.cpp \
     src/ui/aboutdialog.cpp \
     src/ui/tabhandlerrunscript.cpp \
-    src/ui/tabhandlersendapdu.cpp \
     src/pcscwrapper.cpp \
+    src/ui/tabhandlersendcommand.cpp \
     src/utility.cpp
 
 HEADERS += \
@@ -44,8 +44,8 @@ HEADERS += \
     src/ui/logview.h \
     src/ui/aboutdialog.h \
     src/ui/tabhandlerrunscript.h \
-    src/ui/tabhandlersendapdu.h \
     src/pcscwrapper.h \
+    src/ui/tabhandlersendcommand.h \
     src/utility.h
 
 FORMS += \

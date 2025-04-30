@@ -1,5 +1,5 @@
-#ifndef TABHANDLERSENDAPDU_H
-#define TABHANDLERSENDAPDU_H
+#ifndef TABHANDLERSENDCOMMAND_H
+#define TABHANDLERSENDCOMMAND_H
 
 #include <QObject>
 #include <QWidget>
@@ -12,13 +12,13 @@
 #include "scmapplication.h"
 
 
-class TabHandlerSendApdu : public QWidget
+class TabHandlerSendCommand : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit TabHandlerSendApdu(QWidget *tabWidget, QWidget *parent = nullptr);
-    ~TabHandlerSendApdu();
+    explicit TabHandlerSendCommand(QWidget *tabWidget, QWidget *parent = nullptr);
+    ~TabHandlerSendCommand();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event);

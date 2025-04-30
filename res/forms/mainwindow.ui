@@ -26,7 +26,7 @@
        <enum>QTabWidget::TabShape::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="elideMode">
        <enum>Qt::TextElideMode::ElideNone</enum>
@@ -34,22 +34,22 @@
       <property name="tabBarAutoHide">
        <bool>false</bool>
       </property>
-      <widget class="QWidget" name="tabSendApdu">
+      <widget class="QWidget" name="tabSendCommand">
        <attribute name="title">
-        <string>Send APDU</string>
+        <string>Send Command</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
          <layout class="QHBoxLayout" name="horizontalLayoutTop">
           <item>
-           <widget class="QPushButton" name="sendApduButtonLoad">
+           <widget class="QPushButton" name="sendCommandButtonLoad">
             <property name="text">
              <string>&amp;Load</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="sendApduButtonSave">
+           <widget class="QPushButton" name="sendCommandButtonSave">
             <property name="text">
              <string>S&amp;ave</string>
             </property>
@@ -60,6 +60,9 @@
             <property name="orientation">
              <enum>Qt::Orientation::Horizontal</enum>
             </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Policy::Fixed</enum>
+            </property>
             <property name="sizeHint" stdset="0">
              <size>
               <width>40</width>
@@ -68,29 +71,29 @@
             </property>
            </spacer>
           </item>
+          <item>
+           <widget class="QLineEdit" name="sendCommandLineEditFilename">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::FocusPolicy::NoFocus</enum>
+            </property>
+            <property name="autoFillBackground">
+             <bool>false</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">color: black;</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>No command file loaded</string>
+            </property>
+           </widget>
+          </item>
          </layout>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="sendApduLineEditFilename">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="focusPolicy">
-           <enum>Qt::FocusPolicy::NoFocus</enum>
-          </property>
-          <property name="autoFillBackground">
-           <bool>false</bool>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">color: black;</string>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
-          </property>
-          <property name="placeholderText">
-           <string>no APDU file loaded</string>
-          </property>
-         </widget>
         </item>
         <item>
          <widget class="QSplitter" name="splitterTab">
@@ -100,7 +103,7 @@
           <widget class="QWidget" name="rightPanel_2">
            <layout class="QVBoxLayout" name="verticalLayoutRightLeft">
             <item>
-             <widget class="QListView" name="sendApduListView">
+             <widget class="QListView" name="sendCommandListView">
               <property name="acceptDrops">
                <bool>true</bool>
               </property>
@@ -122,22 +125,22 @@
             <item>
              <widget class="QLabel" name="label_2">
               <property name="text">
-               <string>Command Name</string>
+               <string>Name</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="QLineEdit" name="sendApduLineEditCommandName"/>
+             <widget class="QLineEdit" name="sendCommandLineEditCommandName"/>
             </item>
             <item>
              <widget class="QLabel" name="label_3">
               <property name="text">
-               <string>APDU</string>
+               <string>Command</string>
               </property>
              </widget>
             </item>
             <item>
-             <widget class="HexEdit" name="sendApduHexEditCommandApdu" native="true">
+             <widget class="HexEdit" name="sendCommandHexEditCommandApdu" native="true">
               <property name="font">
                <font>
                 <family>Monospace</family>
@@ -174,7 +177,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QPushButton" name="sendApduButtonSend">
+               <widget class="QPushButton" name="sendCommandButtonSend">
                 <property name="text">
                  <string>&amp;Send</string>
                 </property>
@@ -192,9 +195,9 @@
        <attribute name="title">
         <string>Run Script</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_5">
+       <layout class="QVBoxLayout" name="runScriptVerticalLayout">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayoutTop">
+         <layout class="QHBoxLayout" name="runScriptHorizontalLayoutTop">
           <item>
            <widget class="QPushButton" name="runScriptButtonLoad">
             <property name="text">
@@ -217,9 +220,12 @@
            </widget>
           </item>
           <item>
-           <spacer name="horizontalSpacerButtons">
+           <spacer name="runScriptHorizontalSpacerButtons">
             <property name="orientation">
              <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Policy::Fixed</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -230,7 +236,7 @@
            </spacer>
           </item>
           <item>
-           <widget class="QLineEdit" name="sendApduLineEditFilename">
+           <widget class="QLineEdit" name="runScriptLineEditFilename">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -247,19 +253,19 @@
              <bool>true</bool>
             </property>
             <property name="placeholderText">
-             <string>no script file loaded</string>
+             <string>No script file loaded</string>
             </property>
            </widget>
           </item>
          </layout>
         </item>
         <item>
-         <widget class="QSplitter" name="splitterTab">
+         <widget class="QSplitter" name="runScriptSplitterTab">
           <property name="orientation">
            <enum>Qt::Orientation::Horizontal</enum>
           </property>
-          <widget class="QWidget" name="rightPanel_2">
-           <layout class="QVBoxLayout" name="verticalLayoutRightLeft">
+          <widget class="QWidget" name="runScriptRightPanel">
+           <layout class="QVBoxLayout" name="runScriptVerticalLayoutRightLeft">
             <item>
              <widget class="QListView" name="runScriptListView">
               <property name="acceptDrops">
@@ -278,10 +284,10 @@
             </item>
            </layout>
           </widget>
-          <widget class="QWidget" name="verticalLayoutWidget_2">
-           <layout class="QVBoxLayout" name="verticalLayoutRight_2">
+          <widget class="QWidget" name="runScriptVerticalLayoutWidget">
+           <layout class="QVBoxLayout" name="runScriptVerticalLayoutRight">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <layout class="QHBoxLayout" name="runScriptHorizontalLayout">
               <item>
                <widget class="QPushButton" name="runScriptButtonAdd">
                 <property name="text">
@@ -293,7 +299,7 @@
                </widget>
               </item>
               <item>
-               <spacer name="horizontalSpacer">
+               <spacer name="runScriptHorizontalSpacer">
                 <property name="orientation">
                  <enum>Qt::Orientation::Horizontal</enum>
                 </property>

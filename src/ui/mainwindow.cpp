@@ -4,7 +4,7 @@
 #include "aboutdialog.h"
 #include "logview.h"
 #include "pcscwrapper.h"
-#include "tabhandlersendapdu.h"
+#include "tabhandlersendcommand.h"
 
 #include <QToolBar>
 #include <QTabWidget>
@@ -64,7 +64,7 @@ MainWindow::MainWindow(QWidget *parent)
     logView = new LogView(ui->logView, this);
 
     // TabViews
-    tabSendApdu = new TabHandlerSendApdu(ui->tabSendApdu);
+    tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand);
     tabRunScript = new TabHandlerRunScript(ui->tabRunScript);
 
     // Menubar
@@ -83,9 +83,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // signal slots
     connect(app->pcsc, &PcscWrapper::log, this, &MainWindow::logString);
-    connect(tabSendApdu, &TabHandlerSendApdu::logBytes, this, &MainWindow::logBytes);
-    connect(tabSendApdu, &TabHandlerSendApdu::logString, this, &MainWindow::logString);
-    connect(tabSendApdu, &TabHandlerSendApdu::update, this, &MainWindow::updateUiState);
+    connect(tabSendCommand, &TabHandlerSendCommand::logBytes, this, &MainWindow::logBytes);
+    connect(tabSendCommand, &TabHandlerSendCommand::logString, this, &MainWindow::logString);
+    connect(tabSendCommand, &TabHandlerSendCommand::update, this, &MainWindow::updateUiState);
 
     // asynchronous call to update the combobox in the toolbar
     QTimer::singleShot(0, this, &MainWindow::actionRefresh);
