@@ -1,7 +1,6 @@
 #ifndef HEXEDIT_H
 #define HEXEDIT_H
 
-#include "qapplication.h"
 #include <QTextEdit>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -15,25 +14,41 @@ class HexEdit : public QTextEdit {
 public:
     explicit HexEdit(QWidget* parent = nullptr) : QTextEdit(parent) {
         setAcceptRichText(false);
+        maxBytes = 0xFFFF;
+    }
+
+    void setMaxBytes(const int max) {
+        maxBytes = max;
+    }
+
+    int length() const {
+        return QByteArray::fromHex(toPlainText().replace(" ", "").toUtf8()).length();
+    }
+
+    QByteArray data() const {
+        return QByteArray::fromHex(toPlainText().replace(" ", "").toUtf8());
+    }
+
+    void setData(const QByteArray data) {
+        setText(data.toHex(' ').toUpper());
     }
 
 protected:
     void keyPressEvent(QKeyEvent* event) override
     {
+        if (event->key() == Qt::Key_Tab ||
+            event->key() == Qt::Key_Backtab) {
+            reformatText();
+            event->ignore();
+            return;
+        }
+
         if (event->matches(QKeySequence::Copy) ||
             event->matches(QKeySequence::Paste) ||
             event->matches(QKeySequence::Cut) ||
             event->matches(QKeySequence::SelectAll)) {
             QTextEdit::keyPressEvent(event);
             reformatText();
-            return;
-        }
-
-        if (event->key() == Qt::Key_Tab) {
-            QWidget* nextWidget = getNextFocusableWidget();
-            if (nextWidget)
-                nextWidget->setFocus();
-            event->accept();
             return;
         }
 
@@ -45,7 +60,12 @@ protected:
 
         QChar chr = input[0];
         if (chr.isDigit() || (chr >= 'A' && chr <= 'F')) {
-            insertHexChar(chr);
+            if (textCursor().hasSelection())
+                textCursor().removeSelectedText();
+
+            int len = QByteArray::fromHex(toPlainText().append(chr).replace(" ", "").toUtf8()).length();
+            if (len <= maxBytes)
+                insertHexChar(chr);
         } else if (event->key() == Qt::Key_Backspace) {
             handleBackspace();
         } else if (event->key() == Qt::Key_Delete) {
@@ -61,40 +81,21 @@ protected:
         }
     }
 
+    void focusInEvent(QFocusEvent *event) override {
+        QTextEdit::focusInEvent(event);
+        selectAll();
+    }
+
+    void focusOutEvent(QFocusEvent *event) override {
+        QTextEdit::focusOutEvent(event);
+        QTextCursor cursor = textCursor();
+        cursor.clearSelection();  // Ensure the selection is cleared
+        setTextCursor(cursor);
+    }
+
 private:
-    QWidget* getNextFocusableWidget() {
-        QWidget* parentWidget = this->parentWidget();
-        if (!parentWidget)
-            return nullptr;
+    int maxBytes;
 
-        QList<QWidget*> focusableChildren = getFocusableWidgets();
-        if (focusableChildren.isEmpty())
-            return nullptr;
-
-        bool foundCurrentWidget = false;
-        for (QWidget* child : focusableChildren) {
-            if (foundCurrentWidget)
-                return child;
-            else if (child == this)
-                foundCurrentWidget = true;
-        }
-
-        return nullptr;
-    }
-
-    QList<QWidget*> getFocusableWidgets() {
-        QWidget* parentWidget = this->parentWidget();
-        if (!parentWidget)
-            return {};
-
-        QList<QWidget*> focusableWidgets;
-        for (QWidget* child : parentWidget->findChildren<QWidget*>()) {
-            if (child->isEnabled() && child->isVisible() && child->focusPolicy() != Qt::NoFocus)
-                focusableWidgets.append(child);
-        }
-
-        return focusableWidgets;
-    }
 
     void insertHexChar(QChar ch)
     {
