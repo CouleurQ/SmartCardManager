@@ -10,9 +10,19 @@ public:
     explicit CommandSendBytes(QObject *parent = nullptr)
         : Command{parent}
     {
+        commandName = "New Send Bytes";
     }
 
-    virtual Command::ObjectType type() const { return Command::ObjectType::SendBytesType; }
+    CommandSendBytes(const CommandSendBytes &copy)
+        : Command(copy)
+    {
+        commandData = copy.commandData;
+    }
+
+    virtual Command::ObjectType type() const override
+    {
+        return Command::ObjectType::SendBytesType;
+    }
 
 public:
     QByteArray commandData;

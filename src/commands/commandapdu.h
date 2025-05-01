@@ -10,17 +10,32 @@ public:
     explicit CommandApdu(QObject *parent = nullptr)
         : Command{parent}
     {
+        commandName = "New APDU command";
     }
 
-    virtual Command::ObjectType type() const { return Command::ObjectType::SendBytesType; }
+    CommandApdu(const CommandApdu &copy)
+        : Command(copy)
+    {
+        cla = copy.cla;
+        ins = copy.ins;
+        p1 = copy.p1;
+        p2 = copy.p2;
+        commandData = copy.commandData;
+        le = copy.le;
+    }
+
+    virtual Command::ObjectType type() const override
+    {
+        return Command::ObjectType::ApduType;
+    }
 
 public:
-    unsigned char cla;
-    unsigned char ins;
-    unsigned char p1;
-    unsigned char p2;
+    QByteArray cla;
+    QByteArray ins;
+    QByteArray p1;
+    QByteArray p2;
     QByteArray commandData;
-    unsigned char le;
+    QByteArray le;
 };
 
 #endif

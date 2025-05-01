@@ -4,6 +4,7 @@
 #include <QWidget>
 
 #include "commands/view.h"
+#include "commands/commandterminal.h"
 
 
 namespace Ui {
@@ -15,10 +16,10 @@ class ViewTerminal : public View {
     Q_OBJECT
 
 public:
-    explicit ViewTerminal(QWidget *parent = nullptr);
+    explicit ViewTerminal(QSharedPointer<CommandTerminal> obj = nullptr, QWidget *parent = nullptr);
     ~ViewTerminal();
 
-    void sendUpdateCommand() {};
+    void sendUpdateCommand();
 
 private:
     Ui::ViewTerminal *ui;

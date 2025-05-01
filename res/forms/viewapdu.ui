@@ -33,7 +33,7 @@
    <item>
     <layout class="QGridLayout" name="gridLayout">
      <item row="3" column="1">
-      <widget class="QLineEdit" name="lineEditP2">
+      <widget class="HexEdit" name="hexEditP2" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -42,8 +42,8 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>22</width>
-         <height>16777215</height>
+         <width>26</width>
+         <height>22</height>
         </size>
        </property>
       </widget>
@@ -87,7 +87,7 @@
       </widget>
      </item>
      <item row="6" column="1">
-      <widget class="QLineEdit" name="lineEditLe">
+      <widget class="HexEdit" name="hexEditLe" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -96,14 +96,14 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>22</width>
-         <height>16777215</height>
+         <width>26</width>
+         <height>22</height>
         </size>
        </property>
       </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QLineEdit" name="lineEditP1">
+      <widget class="HexEdit" name="hexEditP1" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -112,8 +112,8 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>22</width>
-         <height>16777215</height>
+         <width>26</width>
+         <height>22</height>
         </size>
        </property>
       </widget>
@@ -140,7 +140,7 @@
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="lineEditCLA">
+      <widget class="HexEdit" name="hexEditCLA" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -149,13 +149,13 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>22</width>
-         <height>22</height>
+         <width>0</width>
+         <height>0</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>22</width>
+         <width>26</width>
          <height>22</height>
         </size>
        </property>
@@ -198,7 +198,7 @@
       </widget>
      </item>
      <item row="1" column="1">
-      <widget class="QLineEdit" name="lineEditINS">
+      <widget class="HexEdit" name="hexEditINS" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -207,8 +207,8 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>22</width>
-         <height>16777215</height>
+         <width>26</width>
+         <height>22</height>
         </size>
        </property>
       </widget>
@@ -223,7 +223,7 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>22</width>
+         <width>26</width>
          <height>16777215</height>
         </size>
        </property>
@@ -245,12 +245,12 @@
  </customwidgets>
  <tabstops>
   <tabstop>lineEditCommandName</tabstop>
-  <tabstop>lineEditCLA</tabstop>
-  <tabstop>lineEditINS</tabstop>
-  <tabstop>lineEditP1</tabstop>
-  <tabstop>lineEditP2</tabstop>
+  <tabstop>hexEditCLA</tabstop>
+  <tabstop>hexEditINS</tabstop>
+  <tabstop>hexEditP1</tabstop>
+  <tabstop>hexEditP2</tabstop>
   <tabstop>hexEditData</tabstop>
-  <tabstop>lineEditLe</tabstop>
+  <tabstop>hexEditLe</tabstop>
   <tabstop>hexEditExpectedResponse</tabstop>
  </tabstops>
  <resources/>

@@ -33,6 +33,7 @@ HEADERS += \
     src/commands/commandapdu.h \
     src/commands/commandsendbytes.h \
     src/commands/commandterminal.h \
+    src/commands/model.h \
     src/commands/view.h \
     src/commands/viewapdu.h \
     src/commands/viewsendbytes.h \
@@ -59,5 +60,6 @@ RESOURCES += \
     res/resources.qrc
 
 DISTFILES += \
-    res/apduScheme.json \
-    res/defaultApduList.json
+    res/commandListScheme.json \
+    res/defaultCommandList.json \
+    res/defaultScriptFile.json

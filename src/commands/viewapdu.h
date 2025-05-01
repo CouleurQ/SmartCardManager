@@ -4,6 +4,7 @@
 #include <QWidget>
 
 #include "commands/view.h"
+#include "commands/commandapdu.h"
 
 
 namespace Ui {
@@ -15,7 +16,7 @@ class ViewApdu : public View {
     Q_OBJECT
 
 public:
-    explicit ViewApdu(QWidget *parent = nullptr);
+    explicit ViewApdu(QSharedPointer<CommandApdu> obj = nullptr, QWidget *parent = nullptr);
     ~ViewApdu();
 
     void sendUpdateCommand();

@@ -10,9 +10,19 @@ public:
     explicit CommandTerminal(QObject *parent = nullptr)
         : Command{parent}
     {
+        commandName = "New Terminal Command";
     }
 
-    virtual Command::ObjectType type() const { return Command::ObjectType::TerminalType; }
+    CommandTerminal(const CommandTerminal &copy)
+        : Command(copy)
+    {
+        action = copy.action;
+    }
+
+    virtual Command::ObjectType type() const override
+    {
+        return Command::ObjectType::TerminalType;
+    }
 
 public:
     enum class ActionType { WarmReset, ColdReset, Eject, Leave };

@@ -9,14 +9,25 @@ class Command : public QObject
     Q_OBJECT
 
 public:
+    enum class ObjectType { BaseType, SendBytesType, ApduType, TerminalType };
+
     explicit Command(QObject *parent = nullptr)
         : QObject{parent}
     {
     }
 
-    enum class ObjectType { BaseType, SendBytesType, ApduType, TerminalType };
+    Command(const Command &copy)
+    {
+        commandName = copy.commandName;
+        expectedResponse = copy.expectedResponse;
+    }
 
-    virtual ObjectType type() const { return ObjectType::BaseType; }
+    virtual ~Command() = default;
+
+    virtual ObjectType type() const
+    {
+        return ObjectType::BaseType;
+    }
 
 public:
     QString commandName;

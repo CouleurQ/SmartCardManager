@@ -4,6 +4,7 @@
 #include <QWidget>
 
 #include "commands/view.h"
+#include "commands/commandsendbytes.h"
 
 
 namespace Ui {
@@ -15,7 +16,7 @@ class ViewSendBytes : public View {
     Q_OBJECT
 
 public:
-    explicit ViewSendBytes(QWidget *parent = nullptr);
+    explicit ViewSendBytes(QSharedPointer<CommandSendBytes> obj = nullptr, QWidget *parent = nullptr);
     ~ViewSendBytes();
 
     void sendUpdateCommand();

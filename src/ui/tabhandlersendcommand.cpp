@@ -245,7 +245,7 @@ void TabHandlerSendCommand::_buttonActionAdd(const QString &cmdName, const QByte
 void TabHandlerSendCommand::buttonActionLoad()
 {
     // Select a JSON file
-    QString filePath = QFileDialog::getOpenFileName(nullptr, "Select SendApdu JSON File", "", "JSON Files (*.json);;All Files (*)");
+    QString filePath = QFileDialog::getOpenFileName(nullptr, "Select Command File", "", "JSON Files (*.json);;All Files (*)");
 
     if (filePath.isEmpty())
         return;
@@ -308,7 +308,7 @@ void TabHandlerSendCommand::_buttonActionLoad(const QString &filePath)
 
 void TabHandlerSendCommand::buttonActionSave()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, "Save File", "", "JSON Files (*.json);;All Files (*)");
+    QString filePath = QFileDialog::getSaveFileName(this, "Save Command File", "", "JSON Files (*.json);;All Files (*)");
 
     if (filePath.isEmpty())
         return;
