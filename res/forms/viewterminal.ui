@@ -21,6 +21,30 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:700;&quot;&gt;Terminal Command&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::TextFormat::RichText</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QLabel" name="label">
      <property name="text">
       <string>Command Name</string>
@@ -38,7 +62,11 @@
     </widget>
    </item>
    <item>
-    <widget class="QComboBox" name="comboBoxAction"/>
+    <widget class="QComboBox" name="comboBoxAction">
+     <property name="placeholderText">
+      <string/>
+     </property>
+    </widget>
    </item>
    <item>
     <spacer name="verticalSpacer">

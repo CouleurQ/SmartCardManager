@@ -59,6 +59,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Splitter
     ui->splitterTab->setSizes({250, 550});
+    ui->runScriptSplitterTab->setSizes({250, 550});
 
     // Logview
     logView = new LogView(ui->logView, this);

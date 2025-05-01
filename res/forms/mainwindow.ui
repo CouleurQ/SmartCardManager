@@ -207,6 +207,9 @@
           </item>
           <item>
            <widget class="QPushButton" name="runScriptButtonImport">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>&amp;Import</string>
             </property>

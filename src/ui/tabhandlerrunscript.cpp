@@ -36,7 +36,7 @@ TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QWidget *parent)
 
     // Add actions to the menu
     QMenu *menu = new QMenu(this);
-    QAction *action1 = menu->addAction("Send command bytes");
+    QAction *action1 = menu->addAction("Send Bytes");
     action1->setData(1);
     QAction *action2 = menu->addAction("Send APDU");
     action2->setData(2);
@@ -130,12 +130,14 @@ void TabHandlerRunScript::replaceCurrentView(View *view) {
         delete currentView;
     }
 
-    view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    stackedWidget->addWidget(view);
-    stackedWidget->setCurrentIndex(stackedWidget->indexOf(view));
+    if (view != nullptr) {
+        view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        stackedWidget->addWidget(view);
+        stackedWidget->setCurrentIndex(stackedWidget->indexOf(view));
 
-    // Connect slots
-    connect(view, &View::notifyUpdateCommand, this, &TabHandlerRunScript::receiveUpdateCommand);
+        // Connect slots
+        connect(view, &View::notifyUpdateCommand, this, &TabHandlerRunScript::receiveUpdateCommand);
+    }
 }
 
 
@@ -265,6 +267,7 @@ void TabHandlerRunScript::receiveUpdateCommand(QSharedPointer<Command> obj)
 
 void TabHandlerRunScript::buttonActionClear()
 {
+    replaceCurrentView(nullptr);
     model->clear();
     listView->clearSelection();
 }
@@ -340,6 +343,11 @@ void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
                 qDebug() << "Adding TERMINALCMD " + name;
                 QSharedPointer<CommandTerminal> command = QSharedPointer<CommandTerminal>::create(CommandTerminal());
                 command->commandName = name;
+                for (int i = 0; i < (int)CommandTerminal::ActionType::_count_; ++i) {
+                    QString enumString = CommandTerminal::getActionString(static_cast<CommandTerminal::ActionType>(i));
+                    if (enumString == item["action"])
+                        command->action = static_cast<CommandTerminal::ActionType>(i);
+                }
                 model->addCommand(command);
                 replaceCurrentView(new ViewTerminal(command));
             }
@@ -414,7 +422,8 @@ void TabHandlerRunScript::buttonActionSave()
             }
             case Command::ObjectType::TerminalType: {
                 QSharedPointer<CommandTerminal> specificItem = qSharedPointerDynamicCast<CommandTerminal>(item);
-                out << "      \"type\": \"TerminalCmd\"\n";
+                out << "      \"type\": \"TerminalCmd\",\n";
+                out << "      \"action\": \"" << CommandTerminal::getActionString(specificItem->action) << "\"\n";
                 break;
             }
             case Command::ObjectType::BaseType:
