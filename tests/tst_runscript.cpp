@@ -5,9 +5,9 @@
 #include "commands/commandsendbytes.h"
 #include "commands/commandapdu.h"
 #include "commands/commandterminal.h"
-#include "commands/viewsendbytes.h"
-#include "commands/viewapdu.h"
-#include "commands/viewterminal.h"
+#include "commands/commandviewsendbytes.h"
+#include "commands/commandviewapdu.h"
+#include "commands/commandviewterminal.h"
 
 #include <QTest>
 #include <QSignalSpy>
@@ -105,20 +105,20 @@ void TstRunScript::addCreatesCommandAndMatchingView()
     addViaMenu(2);
 
     QCOMPARE(model->rowCount(), 3);
-    QCOMPARE(model->commandType(0), Command::ObjectType::SendBytesType);
-    QCOMPARE(model->commandType(1), Command::ObjectType::ApduType);
-    QCOMPARE(model->commandType(2), Command::ObjectType::TerminalType);
+    QCOMPARE(model->commandType(0), QString("SendBytes"));
+    QCOMPARE(model->commandType(1), QString("SendAPDU"));
+    QCOMPARE(model->commandType(2), QString("TerminalCmd"));
 
     // the last added item is selected and its editor shown
     QCOMPARE(tab->listView->currentIndex().row(), 2);
-    QVERIFY(currentView<ViewTerminal>());
+    QVERIFY(currentView<CommandViewTerminal>());
     QCOMPARE(tab->stackedWidget->count(), 1);   // old view must not pile up
 }
 
 void TstRunScript::editingViewUpdatesModel()
 {
     addViaMenu(0);
-    auto *view = currentView<ViewSendBytes>();
+    auto *view = currentView<CommandViewSendBytes>();
     QVERIFY(view);
 
     view->findChild<QLineEdit *>("lineEditCommandName")->setText("Select ISD");
@@ -135,7 +135,7 @@ void TstRunScript::editingViewUpdatesModel()
 void TstRunScript::editingViewUpdatesListText()
 {
     addViaMenu(2);
-    currentView<ViewTerminal>()->findChild<QLineEdit *>("lineEditCommandName")->setText("Reset it");
+    currentView<CommandViewTerminal>()->findChild<QLineEdit *>("lineEditCommandName")->setText("Reset it");
     QCOMPARE(model->index(0, 0).data().toString(), QString("Reset it"));
 }
 
@@ -146,11 +146,11 @@ void TstRunScript::selectionSwitchesView()
     addViaMenu(2);
 
     select(0);
-    QVERIFY(currentView<ViewSendBytes>());
+    QVERIFY(currentView<CommandViewSendBytes>());
     select(1);
-    QVERIFY(currentView<ViewApdu>());
+    QVERIFY(currentView<CommandViewApdu>());
     select(2);
-    QVERIFY(currentView<ViewTerminal>());
+    QVERIFY(currentView<CommandViewTerminal>());
     QCOMPARE(tab->stackedWidget->count(), 1);
 }
 
@@ -182,7 +182,7 @@ void TstRunScript::duplicateApduShowsTheCopyInTheView()
 
     tab->buttonActionDuplicate();
 
-    auto *view = currentView<ViewApdu>();
+    auto *view = currentView<CommandViewApdu>();
     QVERIFY(view);
     QCOMPARE(view->findChild<QLineEdit *>("lineEditCommandName")->text(), QString("Select_copy"));
 }
@@ -214,8 +214,8 @@ void TstRunScript::deleteRemovesCurrentCommand()
     tab->buttonActionDelete();
 
     QCOMPARE(model->rowCount(), 2);
-    QCOMPARE(model->commandType(0), Command::ObjectType::SendBytesType);
-    QCOMPARE(model->commandType(1), Command::ObjectType::TerminalType);
+    QCOMPARE(model->commandType(0), QString("SendBytes"));
+    QCOMPARE(model->commandType(1), QString("TerminalCmd"));
 }
 
 // BUG: when the last command is deleted nothing replaces the editor view, so a stale
@@ -259,9 +259,9 @@ void TstRunScript::loadDefaultScriptFile()
     QCOMPARE(logs.count(), 0);
     QCOMPARE(model->rowCount(), 3);
     QCOMPARE(names(), QStringList({"Select ISD", "Select ISD", "Get CPLC Data"}));
-    QCOMPARE(model->commandType(0), Command::ObjectType::ApduType);
-    QCOMPARE(model->commandType(1), Command::ObjectType::SendBytesType);
-    QCOMPARE(model->commandType(2), Command::ObjectType::SendBytesType);
+    QCOMPARE(model->commandType(0), QString("SendAPDU"));
+    QCOMPARE(model->commandType(1), QString("SendBytes"));
+    QCOMPARE(model->commandType(2), QString("SendBytes"));
 
     auto apdu = qSharedPointerDynamicCast<CommandApdu>(model->item(0));
     QCOMPARE(apdu->cla, QByteArray::fromHex("00"));
@@ -276,7 +276,7 @@ void TstRunScript::loadDefaultScriptFile()
 
     QCOMPARE(tab->lineEditFilename->text(), path);
     QCOMPARE(tab->listView->currentIndex().row(), 0);   // first item selected
-    QVERIFY(currentView<ViewApdu>());
+    QVERIFY(currentView<CommandViewApdu>());
 }
 
 void TstRunScript::loadRejectsWrongVersion()

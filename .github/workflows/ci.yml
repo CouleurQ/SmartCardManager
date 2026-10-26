@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev qt6-svg-dev libpcsclite-dev pkg-config g++ make
+      - name: Build
+        run: ./make.sh build
+      - name: Test
+        run: ./make.sh test

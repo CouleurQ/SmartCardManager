@@ -17,9 +17,8 @@ commands, and (work in progress) run scripts of commands.
 
 Tests live in `tests/` (`tests.pro`, one executable `tst_smartcardmanager`). Each test file registers
 its class via `TestRegistrar<T>` (`tests/testregistry.h`); `tests/main.cpp` runs them all inside a
-`ScmApplication`. Known defects are documented with `QEXPECT_FAIL` and a `B-xx` id from
-`CODE_REVIEW.md`, so the suite is green today and an `XPASS` tells you a bug got fixed
-(remove the `QEXPECT_FAIL`). Tab handlers and `MainWindow` are reached through
+`QApplication`. A known, not yet fixed defect is documented with `QEXPECT_FAIL`, so an `XPASS`
+tells you it got fixed (remove the `QEXPECT_FAIL`). Tab handlers and `MainWindow` are reached through
 `tests/privateaccess.h` (`#define private public`) because they expose no test seams.
 
 | Test class | Covers |
@@ -29,7 +28,9 @@ its class via `TestRegistrar<T>` (`tests/testregistry.h`); `tests/main.cpp` runs
 | TstHexEdit | typing, formatting, delete/backspace, paste, maxBytes, focus (UI) |
 | TstViews | the four command editor views (UI) |
 | TstLogView | log rows, colours, clear (UI) |
-| TstPcscWrapper | behaviour without reader/card |
+| TstPcscTransport | PC/SC behaviour without reader/card |
+| TstCardSession | session, async send, command execution (MockTransport) |
+| TstScriptFile | script / command list files, command JSON, factory |
 | TstSendCommand | Send-Command tab: add/edit/move/delete, send, load/save, drag&drop (UI) |
 | TstRunScript | Run-Script tab: selection, editors, load/save/round trip (UI) |
 | TstMainWindow | window structure, tab wiring, log dock |
@@ -38,49 +39,53 @@ its class via `TestRegistrar<T>` (`tests/testregistry.h`); `tests/main.cpp` runs
 
 ```
 src/
-  main.cpp                 single-instance handling (QLocalServer), app start
-  scmapplication.*         QApplication subclass; owns global `pcsc` (PcscWrapper*) and `cardReader`
-  pcscwrapper.*            thin C++ wrapper over pcsc-lite (context, readers, connect, transmit, reset)
-  utility.*                hex string <-> QByteArray helpers
+  main.cpp                 single-instance handling (QLocalServer), signal handling, wiring
+  utility.*                namespace Utility: hex string <-> QByteArray helpers
+  card/
+    icardtransport.h       ICardTransport: readers/connect/disconnect/reset/transmit (+ log signal)
+    pcsctransport.*        PcscTransport: pcsc-lite implementation
+    cardsession.*          CardSession: selected reader + connection state, serialises transport access,
+                           sendAsync() runs transmissions on a worker thread
   commands/
-    command.h              Command base (QObject) + CommandSendBytes / CommandApdu / CommandTerminal
-    model.h                RunScriptModel : QAbstractListModel of QSharedPointer<Command>
-    view.* viewapdu.*      editor widgets, one per command type; emit notifyUpdateCommand(cmd)
-    viewsendbytes.* viewterminal.*
-  controls/hexedit.h       header-only QTextEdit: hex input with grouping, max length (promoted widget)
+    command.*              Command: abstract value type (typeName, clone, toJson/fromJson, execute)
+    commandsendbytes.* commandapdu.* commandterminal.*   the three command types
+    commandfactory.*       typeName -> new command
+    runscriptmodel.h       RunScriptModel : QAbstractListModel of QSharedPointer<Command>
+    commandview.*          editor widget base, one subclass per command type
+    commandviewapdu.* commandviewsendbytes.* commandviewterminal.*   emit notifyUpdateCommand(cmd)
+  io/
+    scriptfile.*           Run Script file load/save
+    commandlistfile.*      Send Command list load/save
+    jsonwriter.h           ordered hand-written JSON helper
+  controls/hexedit.*       QTextEdit: hex input with grouping, max length (promoted widget)
   ui/
     mainwindow.*           tabs, reader combo, connect button, log dock, status bar
-    tabhandlersendcommand.*  "Send Command" tab controller (list of raw commands, send, JSON load/save)
-    tabhandlerrunscript.*    "Run Script" tab controller (command list + editor, JSON load/save)
+    tabhandlersendcommand.*  "Send Command" tab controller (list of raw commands, send, load/save)
+    tabhandlerrunscript.*    "Run Script" tab controller (command list + editor, load/save)
     logview.*              QTableView log of reader/card traffic, SVG direction icons
     aboutdialog.*
-res/                       icons, default JSON files, `commandListScheme.json`
+res/                       icons, forms, JSON schemas
+.github/workflows/ci.yml   build + test on every push
 ```
 
 ### Runtime data flow
 
-1. `main` creates `ScmApplication` (which creates `PcscWrapper`) and `MainWindow`; a second launch
-   forwards its arguments to the first through a local socket.
-2. `MainWindow` fills the reader combo from `pcsc->getReaders()`; the Connect button calls
-   `pcsc->connect(reader)` / `disconnect()`.
-3. Tab handlers get the wrapper by downcasting `qApp` to `ScmApplication`.
-4. Send tab: Send -> `pcsc->send(reader, bytes)` -> signals `logBytes(CardCmd/CardRsp, ...)` ->
-   `MainWindow` forwards to `LogView`.
-5. Run Script tab: list item selected -> `replaceCurrentView` builds the matching `View*`; edits flow
-   back through `notifyUpdateCommand` -> `model->setData(.., Qt::UserRole)`. Script execution is **not
-   implemented yet** (`expectedResponse` is stored but unused).
+1. `main` creates a `PcscTransport`, a `CardSession` on top of it and the `MainWindow`, which receives the
+   session by constructor (no global state). A second launch is forwarded to the first through a local socket.
+2. `MainWindow` fills the reader combo from `session->readers()`; Connect/Disconnect/Reset call the session,
+   which emits `stateChanged` so that toolbar and status bar follow.
+3. Send tab: Send -> `session->sendAsync(bytes)`; the PC/SC call runs on the session's worker thread and the
+   answer returns as `responseReceived` on the GUI thread -> `logBytes(CardRsp)` -> `MainWindow` -> `LogView`.
+4. Run Script tab: list item selected -> `replaceCurrentView` builds the matching `CommandView*`; edits flow
+   back through `notifyUpdateCommand` -> `model->setData(.., Qt::UserRole)`. `Command::execute(CardSession&)`
+   exists for every command type, but the tab does not run scripts yet.
+5. Tests use `MockTransport` (tests/mocktransport.h) instead of a reader.
 
 ### File formats
 
-*Command list* (Send tab, schema `res/commandListScheme.json`): version + array of `{name, data(hex)}`.
+*Command list* (Send tab, schema `res/commandListScheme.json`): `version`, `dateTime`, `id`, `apduList`
+of `{name, cmd(hex)}`.
 
-*Script file* (Run Script tab, no schema yet): array of commands with `type`
-(`SendBytes`/`SendAPDU`/`Terminal`), `name`, `seq`, type-specific fields. Note B-01 (APDU payload key
-mismatch) and B-02 (hand-written JSON, no escaping).
-
-## Conventions worth knowing
-
-* Command objects are shared (`QSharedPointer<Command>`) between model and editor; editors work on
-  a copy and emit the replaced command.
-* `HexEdit` normalises content to upper-case, space separated bytes; `data()` returns the bytes.
-* `LogType` drives both the SVG icon and the colour of a log row.
+*Script file* (Run Script tab, schema `res/scriptFileScheme.json`): `version`, `dateTime`, `id`, `items` of
+`{name, seq, type, ...}` with `type` one of `SendBytes` (`cmd`, `expectedResponse`), `SendAPDU`
+(`cla ins p1 p2 data le expectedResponse`) or `TerminalCmd` (`action`). Keys are written in this fixed order.

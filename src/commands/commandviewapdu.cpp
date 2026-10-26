@@ -1,13 +1,13 @@
-#include "viewapdu.h"
-#include "ui_viewapdu.h"
+#include "commandviewapdu.h"
+#include "ui_commandviewapdu.h"
 #include "commands/commandapdu.h"
 
 #include <QTimer>
 
 
-ViewApdu::ViewApdu(QSharedPointer<CommandApdu> obj, QWidget *parent) :
-    View(parent),
-    ui(new Ui::ViewApdu)
+CommandViewApdu::CommandViewApdu(QSharedPointer<CommandApdu> obj, QWidget *parent) :
+    CommandView(parent),
+    ui(new Ui::CommandViewApdu)
 {
     ui->setupUi(this);
 
@@ -23,14 +23,14 @@ ViewApdu::ViewApdu(QSharedPointer<CommandApdu> obj, QWidget *parent) :
         ui->hexEditExpectedResponse->setData(obj->expectedResponse);
     }
 
-    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditCLA, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditINS, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditP1, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditP2, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditData, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditLe, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
-    connect(ui->hexEditExpectedResponse, &HexEdit::textChanged, this, &ViewApdu::sendUpdateCommand);
+    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditCLA, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditINS, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditP1, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditP2, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditData, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditLe, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
+    connect(ui->hexEditExpectedResponse, &HexEdit::textChanged, this, &CommandViewApdu::sendUpdateCommand);
 
     // single line fields
     ui->hexEditData->setMaxBytes(261);
@@ -60,13 +60,13 @@ ViewApdu::ViewApdu(QSharedPointer<CommandApdu> obj, QWidget *parent) :
 }
 
 
-ViewApdu::~ViewApdu()
+CommandViewApdu::~CommandViewApdu()
 {
     delete ui;
 }
 
 
-void ViewApdu::sendUpdateCommand()
+void CommandViewApdu::sendUpdateCommand()
 {
     QSharedPointer<CommandApdu> obj = QSharedPointer<CommandApdu>::create();
 

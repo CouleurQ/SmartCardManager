@@ -10,10 +10,9 @@
 #include <QStandardItem>
 
 #include "global.h"
-#include "scmapplication.h"
-#include "commands/view.h"
+#include "commands/commandview.h"
 #include "commands/command.h"
-#include "commands/model.h"
+#include "commands/runscriptmodel.h"
 
 
 class TabHandlerRunScript : public QObject
@@ -25,7 +24,7 @@ public:
     ~TabHandlerRunScript();
 
 private:
-    void replaceCurrentView(View *view);
+    void replaceCurrentView(CommandView *view);
     void showContextMenu(const QPoint &pos);
     void showItem(const QModelIndex &index);
     void onItemSelected(const QModelIndex &current, const QModelIndex &previous);
@@ -40,7 +39,6 @@ private:
     void buttonActionDown();
 
 private:
-    ScmApplication *app;
     QWidget *tabWidget;
 
     RunScriptModel *model;

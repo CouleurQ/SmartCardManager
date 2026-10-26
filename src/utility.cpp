@@ -1,11 +1,9 @@
 #include "utility.h"
 
-#include <QString>
-#include <QByteArray>
 #include <QRegularExpression>
 
 
-QByteArray Utility::hexStringToByteArray(const QString& hexString)
+QByteArray Utility::hexStringToByteArray(const QString &hexString)
 {
     static const QRegularExpression regEx = QRegularExpression(QStringLiteral("[^0-9a-fA-F]"));
     QString string = hexString;
@@ -16,4 +14,10 @@ QByteArray Utility::hexStringToByteArray(const QString& hexString)
         string += "0";
 
     return QByteArray::fromHex(string.toLatin1());
+}
+
+
+QString Utility::byteArrayToHexString(const QByteArray &data)
+{
+    return QString::fromLatin1(data.toHex(' ').toUpper());
 }

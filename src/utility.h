@@ -1,18 +1,18 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 
-#include <QObject>
+#include <QByteArray>
+#include <QString>
 
 
-class Utility : public QObject
-{
-    Q_OBJECT
-public:
-    explicit Utility() {};
+namespace Utility {
 
-    static QByteArray hexStringToByteArray(const QString& hexString);
+// Ignores every non hex character; an odd digit count is padded with a trailing 0.
+QByteArray hexStringToByteArray(const QString &hexString);
 
-signals:
-};
+// "00 A4 04" (upper case, space separated)
+QString byteArrayToHexString(const QByteArray &data);
+
+}
 
 #endif

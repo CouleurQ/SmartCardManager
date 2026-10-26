@@ -10,11 +10,11 @@
 #include <QtWidgets>
 #include <QtNetwork>
 #include <QtSvgWidgets>
-#include "scmapplication.h"
+#include "card/cardsession.h"
 #include "hexedit.h"
 #include "global.h"
-#include "commands/model.h"
-#include "commands/view.h"
+#include "commands/runscriptmodel.h"
+#include "commands/commandview.h"
 
 #define private public
 #include "ui/tabhandlersendcommand.h"

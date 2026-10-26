@@ -1,4 +1,5 @@
 #include "testregistry.h"
+#include "mocktransport.h"
 #include "testutil.h"
 #include "privateaccess.h"
 #include "ui_mainwindow.h"
@@ -13,6 +14,8 @@ class TstSendCommand : public QObject
     Q_OBJECT
 
 private:
+    MockTransport *transport = nullptr;
+    CardSession *session = nullptr;
     QMainWindow *window = nullptr;
     Ui::MainWindow *ui = nullptr;
     TabHandlerSendCommand *tab = nullptr;
@@ -42,6 +45,7 @@ private slots:
     void clearRemovesAll();
 
     void sendWithoutCardLogsCommandAndNotifies();
+    void sendWithCardLogsResponse();
     void sendEmptyCommandDoesNothing();
     void doubleClickSends();
 
@@ -76,7 +80,9 @@ void TstSendCommand::init()
     window = new QMainWindow;
     ui = new Ui::MainWindow;
     ui->setupUi(window);
-    tab = new TabHandlerSendCommand(ui->tabSendCommand);
+    transport = new MockTransport;
+    session = new CardSession(transport);
+    tab = new TabHandlerSendCommand(ui->tabSendCommand, session);
     model = qobject_cast<QStandardItemModel *>(tab->listView->model());
     window->show();
 }
@@ -86,6 +92,9 @@ void TstSendCommand::cleanup()
     delete tab;
     delete window;   // owns the widgets referenced by ui
     delete ui;
+    delete session;
+    delete transport;
+    session = nullptr; transport = nullptr;
     tab = nullptr; window = nullptr; ui = nullptr; model = nullptr;
 }
 
@@ -203,10 +212,27 @@ void TstSendCommand::sendWithoutCardLogsCommandAndNotifies()
 
     tab->buttonActionSend();
 
+    QTRY_COMPARE(updates.count(), 1);                             // the answer arrives asynchronously
     QCOMPARE(bytes.count(), 1);                                   // only the command, no response
     QCOMPARE(bytes.first().at(0).value<LogType>(), LogType::CardCmd);
     QCOMPARE(bytes.first().at(1).toByteArray(), QByteArray::fromHex("00A40400"));
-    QCOMPARE(updates.count(), 1);
+}
+
+void TstSendCommand::sendWithCardLogsResponse()
+{
+    transport->answers.insert(QByteArray::fromHex("00A40400"), QByteArray::fromHex("6A82"));
+    session->setReader("Mock Reader 0");
+    session->connectCard();
+    QSignalSpy bytes(tab, &TabHandlerSendCommand::logBytes);
+    QSignalSpy updates(tab, &TabHandlerSendCommand::update);
+    tab->hexEditCommandApdu->setData(QByteArray::fromHex("00A40400"));
+
+    tab->buttonActionSend();
+
+    QTRY_COMPARE(updates.count(), 1);
+    QCOMPARE(bytes.count(), 2);
+    QCOMPARE(bytes.at(1).at(0).value<LogType>(), LogType::CardRsp);
+    QCOMPARE(bytes.at(1).at(1).toByteArray(), QByteArray::fromHex("6A82"));
 }
 
 void TstSendCommand::sendEmptyCommandDoesNothing()

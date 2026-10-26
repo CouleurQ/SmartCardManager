@@ -1,9 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "scmapplication.h"
 #include "aboutdialog.h"
 #include "logview.h"
-#include "pcscwrapper.h"
 #include "tabhandlersendcommand.h"
 
 #include <QToolBar>
@@ -21,14 +19,14 @@
 #include <QSvgWidget>
 
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(CardSession *session, QWidget *parent)
     : QMainWindow(parent)
+    , session(session)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
-    app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
-    Q_ASSERT_X(app, "MainWindow", "QApplication must be a ScmApplication");
+    Q_ASSERT_X(session, "MainWindow", "a CardSession is required");
 
     // Toolbar
     cardReaderCombo = new QComboBox(this);
@@ -66,7 +64,7 @@ MainWindow::MainWindow(QWidget *parent)
     logView = new LogView(ui->logView, this);
 
     // TabViews
-    tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand, this);
+    tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand, session, this);
     tabRunScript = new TabHandlerRunScript(ui->tabRunScript, this);
 
     // Menubar
@@ -84,7 +82,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     // signal slots
-    connect(app->pcsc, &PcscWrapper::log, this, &MainWindow::logString);
+    connect(session, &CardSession::log, this, &MainWindow::logString);
+    connect(session, &CardSession::stateChanged, this, &MainWindow::updateUiState);
     connect(tabSendCommand, &TabHandlerSendCommand::logBytes, this, &MainWindow::logBytes);
     connect(tabSendCommand, &TabHandlerSendCommand::logString, this, &MainWindow::logString);
     connect(tabSendCommand, &TabHandlerSendCommand::update, this, &MainWindow::updateUiState);
@@ -121,7 +120,7 @@ void MainWindow::logString(const LogType type, const QString& data)
 
 void MainWindow::updateUiState()
 {
-    bool connected = app->pcsc->isConnected(app->cardReader);
+    bool connected = session->isConnected();
 
     // Toolbar states
     ui->actionConnect->setEnabled(!connected);
@@ -131,45 +130,45 @@ void MainWindow::updateUiState()
     // Statusbar
     connectionIcon->load(QString(connected ? ":/res/icons/action_connect.svg" : ":/res/icons/action_disconnect.svg"));
     if (connected)
-        statusLine->setText(QString("Connected: %1").arg(app->cardReader));
-    else if (app->cardReader.isEmpty())
+        statusLine->setText(QString("Connected: %1").arg(session->reader()));
+    else if (session->reader().isEmpty())
         statusLine->setText("No reader selected");
     else
-        statusLine->setText(QString("Ready: %1").arg(app->cardReader));
+        statusLine->setText(QString("Ready: %1").arg(session->reader()));
 }
 
 
 void MainWindow::actionConnect()
 {
-    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Connect card in reader", app->cardReader));
-    app->pcsc->connect(app->cardReader);
+    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Connect card in reader", session->reader()));
+    session->connectCard();
     updateUiState();
 }
 
 
 void MainWindow::actionDisconnect()
 {
-    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Disconnect card in reader", app->cardReader));
-    app->pcsc->disconnect(app->cardReader);
+    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Disconnect card in reader", session->reader()));
+    session->disconnectCard();
     updateUiState();
 }
 
 
 void MainWindow::actionReset()
 {
-    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Reset card in reader", app->cardReader));
-    app->pcsc->reset(app->cardReader);
+    logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Reset card in reader", session->reader()));
+    session->reset();
     updateUiState();
 }
 
 
 void MainWindow::actionRefresh()
 {
-    const QString previousReader = app->cardReader;
+    const QString previousReader = session->reader();
 
     cardReaderCombo->blockSignals(true);
     cardReaderCombo->clear();
-    cardReaderCombo->addItems(app->pcsc->getReaders());
+    cardReaderCombo->addItems(session->readers());
     const int previousIndex = cardReaderCombo->findText(previousReader);
     cardReaderCombo->setCurrentIndex(previousIndex >= 0 ? previousIndex : (cardReaderCombo->count() > 0 ? 0 : -1));
     cardReaderCombo->blockSignals(false);
@@ -184,10 +183,10 @@ void MainWindow::actionRefresh()
 
 void MainWindow::actionReaderChanged()
 {
-    if (app->pcsc->isConnected(app->cardReader))
-        app->pcsc->disconnect(app->cardReader);
+    if (session->isConnected())
+        session->disconnectCard();
 
-    app->cardReader = cardReaderCombo->currentText();
+    session->reader() = cardReaderCombo->currentText();
     updateUiState();
 }
 

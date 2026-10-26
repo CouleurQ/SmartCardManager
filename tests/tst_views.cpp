@@ -1,8 +1,8 @@
 #include "testregistry.h"
 #include "hexedit.h"
-#include "commands/viewapdu.h"
-#include "commands/viewsendbytes.h"
-#include "commands/viewterminal.h"
+#include "commands/commandviewapdu.h"
+#include "commands/commandviewsendbytes.h"
+#include "commands/commandviewterminal.h"
 
 #include <QTest>
 #include <QSignalSpy>
@@ -40,7 +40,7 @@ void TstViews::apduShowsCommand()
     cmd->le = QByteArray::fromHex("00");
     cmd->expectedResponse = QByteArray::fromHex("9000");
 
-    ViewApdu view(cmd);
+    CommandViewApdu view(cmd);
 
     QCOMPARE(view.findChild<QLineEdit *>("lineEditCommandName")->text(), QString("Select ISD"));
     QCOMPARE(view.findChild<HexEdit *>("hexEditCLA")->toPlainText(), QString("00"));
@@ -55,16 +55,16 @@ void TstViews::apduShowsCommand()
 
 void TstViews::apduEmptyForNullCommand()
 {
-    ViewApdu view;
+    CommandViewApdu view;
     QVERIFY(view.findChild<HexEdit *>("hexEditCLA")->toPlainText().isEmpty());
     QVERIFY(view.findChild<HexEdit *>("hexEditData")->toPlainText().isEmpty());
 }
 
 void TstViews::apduEditsEmitUpdatedCommand()
 {
-    ViewApdu view;
+    CommandViewApdu view;
     view.show();
-    QSignalSpy updates(&view, &View::notifyUpdateCommand);
+    QSignalSpy updates(&view, &CommandView::notifyUpdateCommand);
 
     view.findChild<QLineEdit *>("lineEditCommandName")->setText("My command");
     QCOMPARE(updates.count(), 1);
@@ -78,7 +78,7 @@ void TstViews::apduEditsEmitUpdatedCommand()
 
     QVERIFY(updates.count() > 1);
     auto last = updates.last().at(0).value<QSharedPointer<Command>>();
-    QCOMPARE(last->type(), Command::ObjectType::ApduType);
+    QCOMPARE(last->typeName(), QString("SendAPDU"));
     auto apdu = qSharedPointerDynamicCast<CommandApdu>(last);
     QVERIFY(apdu);
     QCOMPARE(apdu->commandName, QString("My command"));
@@ -88,7 +88,7 @@ void TstViews::apduEditsEmitUpdatedCommand()
 
 void TstViews::apduLcFollowsDataLength()
 {
-    ViewApdu view;
+    CommandViewApdu view;
     view.show();
     auto *data = view.findChild<HexEdit *>("hexEditData");
     data->setFocus();
@@ -98,7 +98,7 @@ void TstViews::apduLcFollowsDataLength()
 
 void TstViews::apduFieldsAreLimited()
 {
-    ViewApdu view;
+    CommandViewApdu view;
     view.show();
     for (const char *name : {"hexEditCLA", "hexEditINS", "hexEditP1", "hexEditP2", "hexEditLe"}) {
         auto *edit = view.findChild<HexEdit *>(name);
@@ -110,7 +110,7 @@ void TstViews::apduFieldsAreLimited()
 
 void TstViews::apduLcIsNotFocusable()
 {
-    ViewApdu view;
+    CommandViewApdu view;
     QCOMPARE(view.findChild<QLineEdit *>("lineEditLc")->focusPolicy(), Qt::NoFocus);
 }
 
@@ -121,7 +121,7 @@ void TstViews::sendBytesShowsCommand()
     cmd->commandData = QByteArray::fromHex("80CA9F7F00");
     cmd->expectedResponse = QByteArray::fromHex("9000");
 
-    ViewSendBytes view(cmd);
+    CommandViewSendBytes view(cmd);
 
     QCOMPARE(view.findChild<QLineEdit *>("lineEditCommandName")->text(), QString("raw"));
     QCOMPARE(view.findChild<HexEdit *>("hexEditCommandApdu")->toPlainText(), QString("80 CA 9F 7F 00"));
@@ -130,9 +130,9 @@ void TstViews::sendBytesShowsCommand()
 
 void TstViews::sendBytesEditsEmitUpdatedCommand()
 {
-    ViewSendBytes view;
+    CommandViewSendBytes view;
     view.show();
-    QSignalSpy updates(&view, &View::notifyUpdateCommand);
+    QSignalSpy updates(&view, &CommandView::notifyUpdateCommand);
 
     view.findChild<QLineEdit *>("lineEditCommandName")->setText("raw");
     auto *edit = view.findChild<HexEdit *>("hexEditCommandApdu");
@@ -152,7 +152,7 @@ void TstViews::terminalShowsAction()
     cmd->commandName = "go";
     cmd->action = CommandTerminal::ActionType::Connect;
 
-    ViewTerminal view(cmd);
+    CommandViewTerminal view(cmd);
 
     QCOMPARE(view.findChild<QLineEdit *>("lineEditCommandName")->text(), QString("go"));
     auto *combo = view.findChild<QComboBox *>("comboBoxAction");
@@ -162,14 +162,14 @@ void TstViews::terminalShowsAction()
 
 void TstViews::terminalNullCommandHasNoSelection()
 {
-    ViewTerminal view;
+    CommandViewTerminal view;
     QCOMPARE(view.findChild<QComboBox *>("comboBoxAction")->currentIndex(), -1);
 }
 
 void TstViews::terminalActionChangeEmitsCommand()
 {
-    ViewTerminal view;
-    QSignalSpy updates(&view, &View::notifyUpdateCommand);
+    CommandViewTerminal view;
+    QSignalSpy updates(&view, &CommandView::notifyUpdateCommand);
 
     view.findChild<QComboBox *>("comboBoxAction")->setCurrentIndex(3);   // Wait for removal
 
@@ -181,7 +181,7 @@ void TstViews::terminalActionChangeEmitsCommand()
 
 void TstViews::viewsGrabFocusOnNameField()
 {
-    ViewApdu view;
+    CommandViewApdu view;
     view.show();
     QVERIFY(QTest::qWaitForWindowExposed(&view));
     auto *name = view.findChild<QLineEdit *>("lineEditCommandName");

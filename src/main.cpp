@@ -1,4 +1,5 @@
-#include "scmapplication.h"
+#include "card/cardsession.h"
+#include "card/pcsctransport.h"
 #include "ui/mainwindow.h"
 
 #include <QApplication>
@@ -51,7 +52,7 @@ void installSignalHandlers(QObject *parent)
 
 int main(int argc, char *argv[])
 {
-    ScmApplication application(argc, argv);
+    QApplication application(argc, argv);
 
     application.setApplicationName("SmartCardManager");
     application.setApplicationVersion("0.1");
@@ -76,7 +77,10 @@ int main(int argc, char *argv[])
     if (!server.listen(socketPath))
         qWarning() << "Cannot start in single instance mode";
 
-    MainWindow w;
+    PcscTransport transport;
+    CardSession session(&transport);
+
+    MainWindow w(&session);
     w.resize(800, 600);
     w.show();
 

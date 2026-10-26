@@ -3,7 +3,7 @@
 #include "commands/commandapdu.h"
 #include "commands/commandsendbytes.h"
 #include "commands/commandterminal.h"
-#include "commands/model.h"
+#include "commands/runscriptmodel.h"
 
 #include <QTest>
 #include <QSignalSpy>
@@ -62,10 +62,9 @@ void TstCommands::defaults()
 
 void TstCommands::typeDiscriminator()
 {
-    QCOMPARE(Command().type(), Command::ObjectType::BaseType);
-    QCOMPARE(CommandSendBytes().type(), Command::ObjectType::SendBytesType);
-    QCOMPARE(CommandApdu().type(), Command::ObjectType::ApduType);
-    QCOMPARE(CommandTerminal().type(), Command::ObjectType::TerminalType);
+    QCOMPARE(CommandSendBytes().typeName(), QString("SendBytes"));
+    QCOMPARE(CommandApdu().typeName(), QString("SendAPDU"));
+    QCOMPARE(CommandTerminal().typeName(), QString("TerminalCmd"));
 }
 
 void TstCommands::copyConstructors()
@@ -138,9 +137,9 @@ void TstCommands::modelPassesQtModelTester()
 
     model.addCommand(makeSendBytes("a"));
     model.addCommand(makeSendBytes("b"));
-    model.insertRow(1, {makeSendBytes("c")});
-    model.takeRow(0);
-    model.removeRow(0);
+    model.insertCommands(1, {makeSendBytes("c")});
+    model.takeCommands(0);
+    model.removeCommand(0);
     model.clear();
 }
 
@@ -166,14 +165,14 @@ void TstCommands::modelOutOfRangeAccess()
     QVERIFY(model.item(-1).isNull());
     QVERIFY(model.item(1).isNull());
     QVERIFY(model.itemFromIndex(QModelIndex()).isNull());
-    QVERIFY(model.takeRow(5).isEmpty());
-    QVERIFY(!model.removeRow(5));
-    QVERIFY(!model.removeRow(-1));
-    QCOMPARE(model.commandType(7), Command::ObjectType::BaseType);
+    QVERIFY(model.takeCommands(5).isEmpty());
+    QVERIFY(!model.removeCommand(5));
+    QVERIFY(!model.removeCommand(-1));
+    QCOMPARE(model.commandType(7), QString());
 
     // insertRow outside [0, rowCount] is ignored
-    model.insertRow(-1, {makeSendBytes("x")});
-    model.insertRow(5, {makeSendBytes("x")});
+    model.insertCommands(-1, {makeSendBytes("x")});
+    model.insertCommands(5, {makeSendBytes("x")});
     QCOMPARE(model.rowCount(), 1);
 }
 
@@ -215,10 +214,10 @@ void TstCommands::modelRemoveAndTake()
 
     QSignalSpy removed(&model, &QAbstractItemModel::rowsRemoved);
 
-    QVERIFY(model.removeRow(1));
+    QVERIFY(model.removeCommand(1));
     QCOMPARE(names(model), QStringList({"a", "c", "d"}));
 
-    auto taken = model.takeRow(0);
+    auto taken = model.takeCommands(0);
     QCOMPARE(taken.size(), 1);
     QCOMPARE(taken.first()->commandName, QString("a"));
     QCOMPARE(names(model), QStringList({"c", "d"}));
@@ -231,9 +230,9 @@ void TstCommands::modelInsertRowSingle()
     model.addCommand(makeSendBytes("a"));
     model.addCommand(makeSendBytes("b"));
 
-    model.insertRow(0, {makeSendBytes("front")});
-    model.insertRow(3, {makeSendBytes("back")});
-    model.insertRow(2, {makeSendBytes("mid")});
+    model.insertCommands(0, {makeSendBytes("front")});
+    model.insertCommands(3, {makeSendBytes("back")});
+    model.insertCommands(2, {makeSendBytes("mid")});
 
     QCOMPARE(names(model), QStringList({"front", "a", "mid", "b", "back"}));
 }
@@ -244,7 +243,7 @@ void TstCommands::modelInsertRowKeepsOrderOfMultipleCommands()
     RunScriptModel model;
     model.addCommand(makeSendBytes("a"));
 
-    model.insertRow(0, {makeSendBytes("x"), makeSendBytes("y")});
+    model.insertCommands(0, {makeSendBytes("x"), makeSendBytes("y")});
 
     QCOMPARE(model.rowCount(), 3);
     QCOMPARE(names(model), QStringList({"x", "y", "a"}));
@@ -269,9 +268,9 @@ void TstCommands::modelCommandType()
     model.addCommand(QSharedPointer<CommandApdu>::create());
     model.addCommand(QSharedPointer<CommandTerminal>::create());
 
-    QCOMPARE(model.commandType(0), Command::ObjectType::SendBytesType);
-    QCOMPARE(model.commandType(1), Command::ObjectType::ApduType);
-    QCOMPARE(model.commandType(2), Command::ObjectType::TerminalType);
+    QCOMPARE(model.commandType(0), QString("SendBytes"));
+    QCOMPARE(model.commandType(1), QString("SendAPDU"));
+    QCOMPARE(model.commandType(2), QString("TerminalCmd"));
 }
 
 static TestRegistrar<TstCommands> registrar;

@@ -1,13 +1,14 @@
 #include "tabhandlerrunscript.h"
-#include "utility.h"
-#include "commands/view.h"
-#include "commands/viewsendbytes.h"
-#include "commands/viewapdu.h"
-#include "commands/viewterminal.h"
+#include "io/scriptfile.h"
+#include "commands/commandfactory.h"
+#include "commands/commandview.h"
+#include "commands/commandviewsendbytes.h"
+#include "commands/commandviewapdu.h"
+#include "commands/commandviewterminal.h"
 #include "commands/commandsendbytes.h"
 #include "commands/commandapdu.h"
 #include "commands/commandterminal.h"
-#include "commands/model.h"
+#include "commands/runscriptmodel.h"
 
 #include <QFileDialog>
 #include <QJsonDocument>
@@ -25,16 +26,16 @@
 
 
 namespace {
-// JSON-encodes one string (quotes, backslashes, control characters) while we keep writing the file by hand.
-QString jsonString(const QString &text)
+CommandView *createView(const QSharedPointer<Command> &command)
 {
-    const QByteArray array = QJsonDocument(QJsonArray{text}).toJson(QJsonDocument::Compact);
-    return QString::fromUtf8(array.mid(1, array.size() - 2));
-}
-
-QString hexString(const QByteArray &data)
-{
-    return QString::fromLatin1(data.toHex(' ').toUpper());
+    const QString type = command->typeName();
+    if (type == "SendBytes")
+        return new CommandViewSendBytes(qSharedPointerCast<CommandSendBytes>(command));
+    if (type == "SendAPDU")
+        return new CommandViewApdu(qSharedPointerCast<CommandApdu>(command));
+    if (type == "TerminalCmd")
+        return new CommandViewTerminal(qSharedPointerCast<CommandTerminal>(command));
+    return nullptr;
 }
 }
 
@@ -43,8 +44,6 @@ TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QObject *parent)
     : QObject{parent}
     , tabWidget(tabWidget)
 {
-    app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
-
     // load the widgets
     buttonLoad = tabWidget->findChild<QPushButton *>("runScriptButtonLoad");
     Q_ASSERT(buttonLoad != nullptr);
@@ -62,11 +61,11 @@ TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QObject *parent)
     // Add actions to the menu
     QMenu *menu = new QMenu(tabWidget);
     QAction *action1 = menu->addAction("Send Bytes");
-    action1->setData(1);
+    action1->setData(CommandSendBytes().typeName());
     QAction *action2 = menu->addAction("Send APDU");
-    action2->setData(2);
+    action2->setData(CommandApdu().typeName());
     QAction *action3 = menu->addAction("Terminal command");
-    action3->setData(3);
+    action3->setData(CommandTerminal().typeName());
     buttonAdd->setMenu(menu);
 
     // add the model to the listview
@@ -120,20 +119,7 @@ void TabHandlerRunScript::showItem(const QModelIndex &index)
     if (!item)
         return;
 
-    switch(item->type()) {
-    case Command::ObjectType::SendBytesType:
-        replaceCurrentView(new ViewSendBytes(qSharedPointerDynamicCast<CommandSendBytes>(item)));
-        break;
-    case Command::ObjectType::ApduType:
-        replaceCurrentView(new ViewApdu(qSharedPointerDynamicCast<CommandApdu>(item)));
-        break;
-    case Command::ObjectType::TerminalType:
-        replaceCurrentView(new ViewTerminal(qSharedPointerDynamicCast<CommandTerminal>(item)));
-        break;
-    case Command::ObjectType::BaseType:
-    default:
-        break;
-    }
+    replaceCurrentView(createView(item));
 }
 
 
@@ -148,7 +134,7 @@ void TabHandlerRunScript::onItemSelected(const QModelIndex &current, const QMode
 }
 
 
-void TabHandlerRunScript::replaceCurrentView(View *view) {
+void TabHandlerRunScript::replaceCurrentView(CommandView *view) {
     while (stackedWidget->count() > 0) {
         QWidget *currentView = stackedWidget->widget(0);
         stackedWidget->removeWidget(currentView);
@@ -161,7 +147,7 @@ void TabHandlerRunScript::replaceCurrentView(View *view) {
         stackedWidget->addWidget(view);
         stackedWidget->setCurrentWidget(view);
 
-        connect(view, &View::notifyUpdateCommand, this, &TabHandlerRunScript::receiveUpdateCommand);
+        connect(view, &CommandView::notifyUpdateCommand, this, &TabHandlerRunScript::receiveUpdateCommand);
     }
 }
 
@@ -171,7 +157,7 @@ void TabHandlerRunScript::buttonActionDelete()
     QModelIndex currentIndex = listView->selectionModel()->currentIndex();
 
     if (currentIndex.isValid())
-        model->removeRow(currentIndex.row());
+        model->removeCommand(currentIndex.row());
 }
 
 
@@ -180,32 +166,9 @@ void TabHandlerRunScript::buttonActionDuplicate()
     QModelIndex currentIndex = listView->selectionModel()->currentIndex();
 
     if (currentIndex.isValid()) {
-        QSharedPointer<Command> item = model->itemFromIndex(currentIndex);
-
-
-        switch(item->type()) {
-        case Command::ObjectType::SendBytesType: {
-            QSharedPointer<CommandSendBytes> newItem = QSharedPointer<CommandSendBytes>::create(CommandSendBytes(*qSharedPointerDynamicCast<CommandSendBytes>(item)));
-            newItem->commandName.append("_copy");
-            model->addCommand(newItem);
-            break;
-        }
-        case Command::ObjectType::ApduType: {
-            QSharedPointer<CommandApdu> newItem = QSharedPointer<CommandApdu>::create(CommandApdu(*qSharedPointerDynamicCast<CommandApdu>(item)));
-            newItem->commandName.append("_copy");
-            model->addCommand(newItem);
-            break;
-        }
-        case Command::ObjectType::TerminalType: {
-            QSharedPointer<CommandTerminal> newItem = QSharedPointer<CommandTerminal>::create(CommandTerminal(*qSharedPointerDynamicCast<CommandTerminal>(item)));
-            newItem->commandName.append("_copy");
-            model->addCommand(newItem);
-            break;
-        }
-        case Command::ObjectType::BaseType:
-        default:
-            break;
-        }
+        QSharedPointer<Command> newItem = model->itemFromIndex(currentIndex)->clone();
+        newItem->commandName.append("_copy");
+        model->addCommand(newItem);
 
         // select item
         QModelIndex index = model->index(model->rowCount() - 1, 0);
@@ -225,7 +188,7 @@ void TabHandlerRunScript::buttonActionUp()
 
         if (row > 0) {
             // Swap the rows (move item up by 1)
-            model->insertRow(row - 1, model->takeRow(row));
+            model->insertCommands(row - 1, model->takeCommands(row));
             listView->setCurrentIndex(model->index(row - 1, 0));
         }
     }
@@ -241,7 +204,7 @@ void TabHandlerRunScript::buttonActionDown()
 
         if (row < model->rowCount() - 1) {
             // Swap the rows (move item down by 1)
-            model->insertRow(row + 1, model->takeRow(row));
+            model->insertCommands(row + 1, model->takeCommands(row));
             listView->setCurrentIndex(model->index(row + 1, 0));
         }
     }
@@ -254,18 +217,10 @@ void TabHandlerRunScript::buttonActionAdd()
     if (action == NULL)
         return;
 
-    // add a new item to the listview
-    switch (action->data().toInt()) {
-    case 1:
-        model->addCommand(QSharedPointer<CommandSendBytes>::create(CommandSendBytes()));
-        break;
-    case 2:
-        model->addCommand(QSharedPointer<CommandApdu>::create(CommandApdu()));
-        break;
-    case 3:
-        model->addCommand(QSharedPointer<CommandTerminal>::create(CommandTerminal()));
-        break;
-    }
+    QSharedPointer<Command> command = CommandFactory::create(action->data().toString());
+    if (!command)
+        return;
+    model->addCommand(command);
 
     // select item
     QModelIndex index = model->index(model->rowCount() - 1, 0);
@@ -306,83 +261,27 @@ void TabHandlerRunScript::buttonActionLoad()
 
 void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
 {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit logString(LogType::Error, QString("%1: %2").arg("Failed to open file", file.errorString()));
+    QList<QSharedPointer<Command>> commands;
+    QString error;
+    if (!ScriptFile::load(filePath, &commands, &error)) {
+        emit logString(LogType::Error, error);
         return;
     }
 
+    // file seems valid - replace the old entries
+    buttonActionClear();
+    for (const auto &command : commands)
+        model->addCommand(command);
 
-    // Read and parse the JSON data into a QJsonDocument
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
-    if (doc.isNull()) {
-        emit logString(LogType::Error, QString("%1: %2").arg("Failed to parse script file", parseError.errorString()));
+    lineEditFilename->setText(filePath);
+
+    // focus the first item
+    if (model->rowCount() == 0)
         return;
-    }
-
-    try {
-        QJsonObject jsonObject = doc.object();
-
-        // Access and print top-level elements
-        QString version = jsonObject["version"].toString();
-        if (version != "1.0")
-            throw std::runtime_error(QString("Invalid script file version: " + version).toStdString());
-
-        // file seems valid - remove the old entries
-        buttonActionClear();
-
-        // Now handle the apduList, which is an array
-        QJsonArray items = jsonObject["items"].toArray();
-        for (const QJsonValue &value : items) {
-            const QJsonObject item = value.toObject();
-            QString name = item["name"].toString();
-            QString type = item["type"].toString();
-            if (type == "SendBytes") {
-                qDebug() << "Adding SENDBYTES " + name;
-                QSharedPointer<CommandSendBytes> command = QSharedPointer<CommandSendBytes>::create(CommandSendBytes());
-                command->commandName = name;
-                command->commandData = Utility::hexStringToByteArray(item["cmd"].toString(item["data"].toString()));
-                command->expectedResponse = Utility::hexStringToByteArray(item["expectedResponse"].toString());
-                model->addCommand(command);
-            } else if (type == "SendAPDU") {
-                qDebug() << "Adding SENDAPDU " + name;
-                QSharedPointer<CommandApdu> command = QSharedPointer<CommandApdu>::create(CommandApdu());
-                command->commandName = name;
-                command->cla = Utility::hexStringToByteArray(item["cla"].toString());
-                command->ins = Utility::hexStringToByteArray(item["ins"].toString());
-                command->p1 = Utility::hexStringToByteArray(item["p1"].toString());
-                command->p2 = Utility::hexStringToByteArray(item["p2"].toString());
-                command->commandData = Utility::hexStringToByteArray(item["data"].toString(item["cmd"].toString()));
-                command->le = Utility::hexStringToByteArray(item["le"].toString());
-                command->expectedResponse = Utility::hexStringToByteArray(item["expectedResponse"].toString());
-                model->addCommand(command);
-            } else if (type == "TerminalCmd") {
-                qDebug() << "Adding TERMINALCMD " + name;
-                QSharedPointer<CommandTerminal> command = QSharedPointer<CommandTerminal>::create(CommandTerminal());
-                command->commandName = name;
-                for (int i = 0; i < (int)CommandTerminal::ActionType::_count_; ++i) {
-                    QString enumString = CommandTerminal::getActionString(static_cast<CommandTerminal::ActionType>(i));
-                    if (enumString == item["action"].toString())
-                        command->action = static_cast<CommandTerminal::ActionType>(i);
-                }
-                model->addCommand(command);
-            }
-        }
-
-        // all seems good - set the filename
-        lineEditFilename->setText(filePath);
-
-        // focus the first item
-        if (model->rowCount() == 0)
-            return;
-        QModelIndex index = model->index(0, 0);
-        listView->setCurrentIndex(index);
-        listView->scrollTo(index);
-        listView->selectionModel()->select(index, QItemSelectionModel::ClearAndSelect);
-    } catch (const std::exception &e) {
-        emit logString(LogType::Error, e.what());
-    }
+    QModelIndex index = model->index(0, 0);
+    listView->setCurrentIndex(index);
+    listView->scrollTo(index);
+    listView->selectionModel()->select(index, QItemSelectionModel::ClearAndSelect);
 }
 
 
@@ -397,71 +296,12 @@ void TabHandlerRunScript::buttonActionSave()
         filePath.append(".json");
     }
 
-    try {
-        // we serialize manually to keep the oder for better human editing
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            emit logString(LogType::Error, QString("%1: %2").arg("Cannot write to file", file.errorString()));
-            return;
-        }
-
-        QTextStream out(&file);
-        out << "{\n";
-        out << "  \"version\": \"1.0\",\n";
-        out << "  \"dateTime\": " << jsonString(QDateTime::currentDateTime().toString(Qt::ISODate)) << ",\n";
-        out << "  \"id\": " << jsonString(QUuid::createUuid().toString(QUuid::WithoutBraces)) << ",\n";
-        out << "  \"items\": [\n";
-
-        for (int row = 0; row < listView->model()->rowCount(); ++row) {
-            QSharedPointer<Command> item = model->item(row);
-
-            out << "    {\n";
-            out << "      \"name\": " << jsonString(item->commandName) << ",\n";
-            out << "      \"seq\": " << row << ",\n";
-
-            switch(item->type()) {
-            case Command::ObjectType::SendBytesType: {
-                QSharedPointer<CommandSendBytes> specificItem = qSharedPointerDynamicCast<CommandSendBytes>(item);
-                out << "      \"type\": \"SendBytes\",\n";
-                out << "      \"cmd\": " << jsonString(hexString(specificItem->commandData)) << ",\n";
-                out << "      \"expectedResponse\": " << jsonString(hexString(specificItem->expectedResponse)) << "\n";
-                break;
-            }
-            case Command::ObjectType::ApduType: {
-                QSharedPointer<CommandApdu> specificItem = qSharedPointerDynamicCast<CommandApdu>(item);
-                out << "      \"type\": \"SendAPDU\",\n";
-                out << "      \"cla\": " << jsonString(hexString(specificItem->cla)) << ",\n";
-                out << "      \"ins\": " << jsonString(hexString(specificItem->ins)) << ",\n";
-                out << "      \"p1\": " << jsonString(hexString(specificItem->p1)) << ",\n";
-                out << "      \"p2\": " << jsonString(hexString(specificItem->p2)) << ",\n";
-                out << "      \"data\": " << jsonString(hexString(specificItem->commandData)) << ",\n";
-                out << "      \"le\": " << jsonString(hexString(specificItem->le)) << ",\n";
-                out << "      \"expectedResponse\": " << jsonString(hexString(specificItem->expectedResponse)) << "\n";
-                break;
-            }
-            case Command::ObjectType::TerminalType: {
-                QSharedPointer<CommandTerminal> specificItem = qSharedPointerDynamicCast<CommandTerminal>(item);
-                out << "      \"type\": \"TerminalCmd\",\n";
-                out << "      \"action\": " << jsonString(CommandTerminal::getActionString(specificItem->action)) << "\n";
-                break;
-            }
-            case Command::ObjectType::BaseType:
-            default:
-                break;
-            }
-
-            if (row <= listView->model()->rowCount() - 2)
-                out << "    },\n";
-            else
-                out << "    }\n";
-        }
-        out << "  ]\n";
-        out << "}\n";
-        file.close();
-
-        lineEditFilename->setText(filePath);
-        emit logString(LogType::Info, QString("%1: %2").arg("Script saved", filePath));
-    } catch (const std::exception &e) {
-        emit logString(LogType::Error, e.what());
+    QString error;
+    if (!ScriptFile::save(filePath, model->commands(), &error)) {
+        emit logString(LogType::Error, error);
+        return;
     }
+
+    lineEditFilename->setText(filePath);
+    emit logString(LogType::Info, QString("%1: %2").arg("Script saved", filePath));
 }

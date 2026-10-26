@@ -7,28 +7,18 @@
 class CommandTerminal : public Command
 {
 public:
-    explicit CommandTerminal(QObject *parent = nullptr)
-        : Command{parent}
-    {
-        commandName = "New Terminal Command";
-        action = ActionType::None;
-    }
+    CommandTerminal() { commandName = "New Terminal Command"; }
 
-    CommandTerminal(const CommandTerminal &copy)
-        : Command(copy)
-    {
-        action = copy.action;
-    }
-
-    virtual Command::ObjectType type() const override
-    {
-        return Command::ObjectType::TerminalType;
-    }
+    QString typeName() const override { return QStringLiteral("TerminalCmd"); }
+    QSharedPointer<Command> clone() const override;
+    JsonFields toJson() const override;
+    void fromJson(const QJsonObject &object) override;
+    bool execute(CardSession &session, QByteArray *response = nullptr) const override;
 
 public:
     enum class ActionType { None = 0, WarmReset, ColdReset, WaitForCard, WaitForRemoval, Connect, Disconnect, _count_ };
 
-    ActionType action;
+    ActionType action = ActionType::None;
 
     static QString getActionString(const ActionType value) {
         switch (value) {

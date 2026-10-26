@@ -19,7 +19,7 @@ public:
         endInsertRows();
     }
 
-    void insertRow(int row, const QList<QSharedPointer<Command>> &commands) {
+    void insertCommands(int row, const QList<QSharedPointer<Command>> &commands) {
         if (row < 0 || row > m_commands.size())
             return;
 
@@ -51,7 +51,7 @@ public:
         return itemFromIndex(index(row, 0));
     }
 
-    QList<QSharedPointer<Command>> takeRow(int row) {
+    QList<QSharedPointer<Command>> takeCommands(int row) {
         if (row < 0 || row >= m_commands.size())
             return {};
 
@@ -65,11 +65,11 @@ public:
         return removedCommands;
     }
 
-    bool removeRow(int row, const QModelIndex &parent = QModelIndex()) {
+    bool removeCommand(int row) {
         if (row < 0 || row >= m_commands.size())
             return false;
 
-        beginRemoveRows(parent, row, row);
+        beginRemoveRows(QModelIndex(), row, row);
         m_commands.removeAt(row);
         endRemoveRows();
 
@@ -107,11 +107,15 @@ public:
         return false;
     }
 
-    Command::ObjectType commandType(int row) const {
+    QString commandType(int row) const {
         if (row >= 0 && row < m_commands.count())
-            return m_commands[row]->type();
+            return m_commands[row]->typeName();
 
-        return Command::ObjectType::BaseType;
+        return QString();
+    }
+
+    QList<QSharedPointer<Command>> commands() const {
+        return m_commands;
     }
 
 private:

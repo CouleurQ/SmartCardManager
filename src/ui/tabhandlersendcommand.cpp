@@ -1,6 +1,7 @@
 #include "tabhandlersendcommand.h"
 #include "global.h"
 #include "utility.h"
+#include "io/commandlistfile.h"
 
 #include <QFileDialog>
 #include <QJsonDocument>
@@ -18,11 +19,12 @@
 
 
 
-TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, QObject *parent)
+TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, CardSession *session, QObject *parent)
     : QObject{parent}
+    , session(session)
     , tabWidget(tabWidget)
 {
-    app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
+    Q_ASSERT(session != nullptr);
 
     buttonLoad = tabWidget->findChild<QPushButton *>("sendCommandButtonLoad");
     Q_ASSERT(buttonLoad != nullptr);
@@ -52,6 +54,8 @@ TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, QObject *parent
     connect(listView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TabHandlerSendCommand::onItemSelected);
     connect(lineEditCommandName, &QLineEdit::textChanged, this, &TabHandlerSendCommand::updateCommandName);
     connect(hexEditCommandApdu, &HexEdit::textChanged, this, &TabHandlerSendCommand::updateCommandApdu);
+
+    connect(session, &CardSession::responseReceived, this, &TabHandlerSendCommand::onResponseReceived);
 
     listView->installEventFilter(this);
 
@@ -266,54 +270,25 @@ void TabHandlerSendCommand::buttonActionLoad()
 
 void TabHandlerSendCommand::_buttonActionLoad(const QString &filePath)
 {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit logString(LogType::Error, QString("%1: %2").arg("Failed to open file", file.errorString()));
+    QList<CommandListFile::Entry> entries;
+    QString error;
+    if (!CommandListFile::load(filePath, &entries, &error)) {
+        emit logString(LogType::Error, error);
         return;
     }
 
-
-    // Read and parse the JSON data into a QJsonDocument
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
-    if (doc.isNull()) {
-        emit logString(LogType::Error, QString("%1: %2").arg("Failed to parse command file", parseError.errorString()));
-        return;
+    // file seems valid - replace the old entries
+    buttonActionClear();
+    QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+    for (const auto &entry : entries) {
+        QStandardItem *item = new QStandardItem(entry.name);
+        item->setData(entry.data, Qt::UserRole);
+        model->appendRow(item);
     }
 
-    try {
-        QJsonObject jsonObject = doc.object();
-
-        // Access and print top-level elements
-        QString version = jsonObject["version"].toString();
-        if (version != "1.0")
-            throw std::runtime_error(QString("Invalid json version: " + version).toStdString());
-
-        // file seems valid - remove the old entries
-        buttonActionClear();
-
-        // Now handle the apduList, which is an array
-        QJsonArray apduList = jsonObject["apduList"].toArray();
-        for (int i = 0; i < apduList.size(); ++i) {
-            QJsonObject apduObject = apduList[i].toObject();
-            QString name = apduObject["name"].toString();
-            QString cmd = apduObject["cmd"].toString();
-            qDebug() << "Adding " + name + " with data: " << cmd;
-
-            QStandardItem *item = new QStandardItem(name);
-
-            item->setData(Utility::hexStringToByteArray(cmd), Qt::UserRole);
-
-            qobject_cast<QStandardItemModel *>(listView->model())->appendRow(item);
-        }
-
-        // all worked - set the filename
-        lineEditFilename->setText(filePath);
-        lineEditCommandName->setText("");
-        hexEditCommandApdu->setText("");
-    } catch (const std::exception &e) {
-        emit logString(LogType::Error, e.what());
-    }
+    lineEditFilename->setText(filePath);
+    lineEditCommandName->setText("");
+    hexEditCommandApdu->setText("");
 }
 
 
@@ -328,51 +303,21 @@ void TabHandlerSendCommand::buttonActionSave()
         filePath.append(".json");
     }
 
-    try {
-        QJsonArray apduListArray;
-
-        for (int row = 0; row < listView->model()->rowCount(); ++row) {
-            QStandardItem *item = qobject_cast<QStandardItemModel*>(listView->model())->item(row);
-
-            // Extract the text and the attached data (QByteArray)
-            QString itemText = item->text();
-            QByteArray itemData = item->data(Qt::UserRole).toByteArray();
-
-            // Create a JSON object for each item
-            QJsonObject apduItem;
-            apduItem["name"] = itemText;
-            apduItem["cmd"] = QString(itemData.toHex(' ').toUpper());
-
-            // Add the item to the JSON array
-            apduListArray.append(apduItem);
-        }
-
-        QJsonObject jsonObject;
-        jsonObject["version"] = "1.0";
-        jsonObject["dateTime"] = QDateTime::currentDateTime().toString(Qt::ISODate); // ISO 8601
-        jsonObject["id"] = QUuid::createUuid().toString().remove('{').remove('}');
-        jsonObject["apduList"] = apduListArray;
-
-
-        QString jsonString = QJsonDocument(jsonObject).toJson(QJsonDocument::Indented);
-
-        // Open the file for writing
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            emit logString(LogType::Error, QString("%1: %2").arg("Cannot write to file", file.errorString()));
-            return;
-        }
-
-        QTextStream out(&file);
-        out << jsonString;
-
-        file.close();
-
-        lineEditFilename->setText(filePath);
-        emit logString(LogType::Info, QString("%1: %2").arg("Command file saved", filePath));
-    } catch (const std::exception &e) {
-        emit logString(LogType::Error, e.what());
+    QList<CommandListFile::Entry> entries;
+    QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+    for (int row = 0; row < model->rowCount(); ++row) {
+        QStandardItem *item = model->item(row);
+        entries.append({item->text(), item->data(Qt::UserRole).toByteArray()});
     }
+
+    QString error;
+    if (!CommandListFile::save(filePath, entries, &error)) {
+        emit logString(LogType::Error, error);
+        return;
+    }
+
+    lineEditFilename->setText(filePath);
+    emit logString(LogType::Info, QString("%1: %2").arg("Command file saved", filePath));
 }
 
 
@@ -384,7 +329,14 @@ void TabHandlerSendCommand::buttonActionSend()
 
     emit logBytes(LogType::CardCmd, cmd);
 
-    QByteArray response = app->pcsc->send(app->cardReader, cmd);
+    session->sendAsync(cmd);
+}
+
+
+void TabHandlerSendCommand::onResponseReceived(const QByteArray &command, const QByteArray &response)
+{
+    Q_UNUSED(command)
+
     if (response.length() >= 2)
         emit logBytes(LogType::CardRsp, response);
     else

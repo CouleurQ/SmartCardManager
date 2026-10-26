@@ -1,4 +1,5 @@
 #include "testregistry.h"
+#include "mocktransport.h"
 #include "privateaccess.h"
 #include "ui_mainwindow.h"
 
@@ -21,16 +22,20 @@ private slots:
 
 void TstMainWindow::startsDisconnected()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     w.show();
-    QVERIFY(w.ui->actionConnect->isEnabled() == !w.app->pcsc->isConnected(QString()));
+    QVERIFY(w.ui->actionConnect->isEnabled() == !session.isConnected());
     QVERIFY(!w.ui->actionDisconnect->isEnabled());
     QVERIFY(!w.ui->actionReset->isEnabled());
 }
 
 void TstMainWindow::toolbarHasReaderCombo()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     w.show();
     QVERIFY(w.cardReaderCombo != nullptr);
     QVERIFY(w.cardReaderCombo->minimumWidth() >= 300);
@@ -39,7 +44,9 @@ void TstMainWindow::toolbarHasReaderCombo()
 
 void TstMainWindow::logDockToggleFollowsVisibility()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     w.show();
     QVERIFY(w.ui->dockWidget->isVisible());
     QVERIFY(w.ui->actionLogWindow->isChecked());
@@ -54,7 +61,9 @@ void TstMainWindow::logDockToggleFollowsVisibility()
 
 void TstMainWindow::logMessagesAppearInLogView()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     w.show();
     auto *model = w.ui->logView->model();
     const int before = model->rowCount();
@@ -69,7 +78,9 @@ void TstMainWindow::logMessagesAppearInLogView()
 
 void TstMainWindow::sendCommandTabSignalsAreWired()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     auto *model = w.ui->logView->model();
     const int before = model->rowCount();
 
@@ -79,10 +90,11 @@ void TstMainWindow::sendCommandTabSignalsAreWired()
     QCOMPARE(model->rowCount(), before + 2);
 }
 
-// BUG: MainWindow never connects TabHandlerRunScript's signals, so e.g. load errors vanish.
 void TstMainWindow::runScriptTabSignalsAreWired()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     auto *model = w.ui->logView->model();
     const int before = model->rowCount();
 
@@ -93,7 +105,9 @@ void TstMainWindow::runScriptTabSignalsAreWired()
 
 void TstMainWindow::exitActionClosesWindow()
 {
-    MainWindow w;
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
     w.show();
     QVERIFY(QTest::qWaitForWindowExposed(&w));
     w.ui->actionExit->trigger();

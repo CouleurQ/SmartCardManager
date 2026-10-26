@@ -7,7 +7,7 @@
 #include <QLineEdit>
 #include <QSvgWidget>
 
-#include "scmapplication.h"
+#include "card/cardsession.h"
 #include "logview.h"
 #include "tabhandlersendcommand.h"
 #include "tabhandlerrunscript.h"
@@ -26,11 +26,11 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(CardSession *session, QWidget *parent = nullptr);
     ~MainWindow();
 
 private:
-    ScmApplication *app;
+    CardSession *session;
     Ui::MainWindow *ui;
 
     LogView *logView;

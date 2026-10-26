@@ -9,7 +9,7 @@
 #include "hexedit.h"
 
 #include "global.h"
-#include "scmapplication.h"
+#include "card/cardsession.h"
 
 
 class TabHandlerSendCommand : public QObject
@@ -17,7 +17,7 @@ class TabHandlerSendCommand : public QObject
     Q_OBJECT
 
 public:
-    explicit TabHandlerSendCommand(QWidget *tabWidget, QObject *parent = nullptr);
+    TabHandlerSendCommand(QWidget *tabWidget, CardSession *session, QObject *parent = nullptr);
     ~TabHandlerSendCommand();
 
 protected:
@@ -35,6 +35,7 @@ private:
     void _buttonActionLoad(const QString &filePath);
     void buttonActionSave();
     void buttonActionSend();
+    void onResponseReceived(const QByteArray &command, const QByteArray &response);
     void buttonActionAdd();
     void _buttonActionAdd(const QString &cmdName, const QByteArray &cmdData);
     void buttonActionClear();
@@ -44,7 +45,7 @@ private:
     void buttonActionDown();
 
 private:
-    ScmApplication *app;
+    CardSession *session;
     QWidget *tabWidget;
 
     QPushButton *buttonLoad;

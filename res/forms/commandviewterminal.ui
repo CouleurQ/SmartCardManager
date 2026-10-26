@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ViewTerminal</class>
- <widget class="QWidget" name="ViewTerminal">
+ <class>CommandViewTerminal</class>
+ <widget class="QWidget" name="CommandViewTerminal">
   <property name="geometry">
    <rect>
     <x>0</x>

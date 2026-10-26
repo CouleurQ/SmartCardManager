@@ -1,14 +1,14 @@
-#include "viewsendbytes.h"
-#include "ui_viewsendbytes.h"
+#include "commandviewsendbytes.h"
+#include "ui_commandviewsendbytes.h"
 #include "commandsendbytes.h"
 #include "utility.h"
 
 #include <QTimer>
 
 
-ViewSendBytes::ViewSendBytes(QSharedPointer<CommandSendBytes> obj, QWidget *parent) :
-    View(parent),
-    ui(new Ui::ViewSendBytes)
+CommandViewSendBytes::CommandViewSendBytes(QSharedPointer<CommandSendBytes> obj, QWidget *parent) :
+    CommandView(parent),
+    ui(new Ui::CommandViewSendBytes)
 {
     ui->setupUi(this);
 
@@ -18,9 +18,9 @@ ViewSendBytes::ViewSendBytes(QSharedPointer<CommandSendBytes> obj, QWidget *pare
         ui->hexEditExpectedResponse->setData(obj->expectedResponse);
     }
 
-    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &ViewSendBytes::sendUpdateCommand);
-    connect(ui->hexEditCommandApdu, &HexEdit::textChanged, this, &ViewSendBytes::sendUpdateCommand);
-    connect(ui->hexEditExpectedResponse, &HexEdit::textChanged, this, &ViewSendBytes::sendUpdateCommand);
+    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &CommandViewSendBytes::sendUpdateCommand);
+    connect(ui->hexEditCommandApdu, &HexEdit::textChanged, this, &CommandViewSendBytes::sendUpdateCommand);
+    connect(ui->hexEditExpectedResponse, &HexEdit::textChanged, this, &CommandViewSendBytes::sendUpdateCommand);
 
     // expected response is single line
     ui->hexEditCommandApdu->setMaxBytes(261);
@@ -35,13 +35,13 @@ ViewSendBytes::ViewSendBytes(QSharedPointer<CommandSendBytes> obj, QWidget *pare
 }
 
 
-ViewSendBytes::~ViewSendBytes()
+CommandViewSendBytes::~CommandViewSendBytes()
 {
     delete ui;
 }
 
 
-void ViewSendBytes::sendUpdateCommand()
+void CommandViewSendBytes::sendUpdateCommand()
 {
     QSharedPointer<CommandSendBytes> obj = QSharedPointer<CommandSendBytes>::create();
 

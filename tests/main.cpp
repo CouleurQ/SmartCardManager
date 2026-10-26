@@ -1,7 +1,6 @@
 // Test runner. Usage: tst_smartcardmanager [ClassName ...] [-- QtTest options]
-// A ScmApplication is required because the UI classes downcast qApp to it.
 // Run headless with: QT_QPA_PLATFORM=offscreen (make.sh test does this).
-#include "scmapplication.h"
+#include <QApplication>
 #include "testregistry.h"
 
 #include <QTest>
@@ -9,7 +8,7 @@
 
 int main(int argc, char *argv[])
 {
-    ScmApplication app(argc, argv);
+    QApplication app(argc, argv);
     app.setApplicationName("SmartCardManagerTest");
 
     // Split "ClassName..." filters from QtTest arguments.

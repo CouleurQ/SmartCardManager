@@ -1,4 +1,4 @@
-#include "pcscwrapper.h"
+#include "pcsctransport.h"
 
 #include <pcsclite.h>
 #include <winscard.h>
@@ -15,12 +15,12 @@ QString errorText(const char *what, LONG rv)
 }
 
 
-PcscWrapper::PcscWrapper(QObject* parent) : QObject(parent)
+PcscTransport::PcscTransport(QObject *parent) : ICardTransport(parent)
 {
 }
 
 
-PcscWrapper::~PcscWrapper()
+PcscTransport::~PcscTransport()
 {
     if (hCard != 0)
         SCardDisconnect(hCard, SCARD_LEAVE_CARD);
@@ -29,10 +29,10 @@ PcscWrapper::~PcscWrapper()
 }
 
 
-bool PcscWrapper::connect(const QString &readerName)
+bool PcscTransport::connectCard(const QString &readerName)
 {
     if (hCard != 0)
-        disconnect(readerName);
+        disconnectCard();
 
     SCARDCONTEXT context = getContext();
     if (context == 0)
@@ -52,7 +52,7 @@ bool PcscWrapper::connect(const QString &readerName)
 }
 
 
-bool PcscWrapper::disconnect(const QString &)
+bool PcscTransport::disconnectCard()
 {
     if (hCard == 0)
         return false;
@@ -66,7 +66,7 @@ bool PcscWrapper::disconnect(const QString &)
 }
 
 
-bool PcscWrapper::reset(const QString &)
+bool PcscTransport::reset()
 {
     if (hCard == 0)
         return false;
@@ -82,13 +82,13 @@ bool PcscWrapper::reset(const QString &)
 }
 
 
-bool PcscWrapper::isConnected(const QString &)
+bool PcscTransport::isConnected() const
 {
     return (hCard != 0);
 }
 
 
-QByteArray PcscWrapper::send(const QString &, const QByteArray command)
+QByteArray PcscTransport::transmit(const QByteArray &command)
 {
     if (hCard == 0) {
         emit log(LogType::Error, "Card not connected");
@@ -116,7 +116,7 @@ QByteArray PcscWrapper::send(const QString &, const QByteArray command)
 }
 
 
-QStringList PcscWrapper::getReaders()
+QStringList PcscTransport::readers()
 {
     SCARDCONTEXT context = getContext();
     if (context == 0)
@@ -151,7 +151,7 @@ QStringList PcscWrapper::getReaders()
 }
 
 
-SCARDCONTEXT PcscWrapper::getContext()
+SCARDCONTEXT PcscTransport::getContext()
 {
     if (hContext != 0)
         return hContext;

@@ -1,17 +1,17 @@
-#ifndef VIEW_H
-#define VIEW_H
+#ifndef COMMAND_VIEW_H
+#define COMMAND_VIEW_H
 
 #include <QWidget>
 
 #include "commands/command.h"
 
 
-class View : public QWidget {
+class CommandView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit View(QWidget *parent = nullptr);
-    ~View();
+    explicit CommandView(QWidget *parent = nullptr);
+    ~CommandView();
 
     virtual void sendUpdateCommand() {};
 

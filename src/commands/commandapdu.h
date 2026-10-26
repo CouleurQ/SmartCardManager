@@ -7,27 +7,16 @@
 class CommandApdu : public Command
 {
 public:
-    explicit CommandApdu(QObject *parent = nullptr)
-        : Command{parent}
-    {
-        commandName = "New APDU command";
-    }
+    CommandApdu() { commandName = "New APDU command"; }
 
-    CommandApdu(const CommandApdu &copy)
-        : Command(copy)
-    {
-        cla = copy.cla;
-        ins = copy.ins;
-        p1 = copy.p1;
-        p2 = copy.p2;
-        commandData = copy.commandData;
-        le = copy.le;
-    }
+    QString typeName() const override { return QStringLiteral("SendAPDU"); }
+    QSharedPointer<Command> clone() const override;
+    JsonFields toJson() const override;
+    void fromJson(const QJsonObject &object) override;
+    bool execute(CardSession &session, QByteArray *response = nullptr) const override;
 
-    virtual Command::ObjectType type() const override
-    {
-        return Command::ObjectType::ApduType;
-    }
+    // CLA INS P1 P2 [Lc data] [Le]; data longer than 255 bytes uses the extended Lc form
+    QByteArray buildApdu() const;
 
 public:
     QByteArray cla;

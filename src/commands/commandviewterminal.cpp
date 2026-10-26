@@ -1,14 +1,14 @@
-#include "viewterminal.h"
-#include "ui_viewterminal.h"
+#include "commandviewterminal.h"
+#include "ui_commandviewterminal.h"
 #include "commandterminal.h"
 
 #include <QTimer>
 #include <QMenu>
 
 
-ViewTerminal::ViewTerminal(QSharedPointer<CommandTerminal> obj, QWidget *parent) :
-    View(parent),
-    ui(new Ui::ViewTerminal)
+CommandViewTerminal::CommandViewTerminal(QSharedPointer<CommandTerminal> obj, QWidget *parent) :
+    CommandView(parent),
+    ui(new Ui::CommandViewTerminal)
 {
     ui->setupUi(this);
 
@@ -27,8 +27,8 @@ ViewTerminal::ViewTerminal(QSharedPointer<CommandTerminal> obj, QWidget *parent)
     } else
         ui->comboBoxAction->setCurrentIndex(-1);
 
-    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &ViewTerminal::sendUpdateCommand);
-    connect(ui->comboBoxAction, &QComboBox::currentIndexChanged, this, &ViewTerminal::sendUpdateCommand);
+    connect(ui->lineEditCommandName, &QLineEdit::textChanged, this, &CommandViewTerminal::sendUpdateCommand);
+    connect(ui->comboBoxAction, &QComboBox::currentIndexChanged, this, &CommandViewTerminal::sendUpdateCommand);
 
     // set the focus (delayed) and update the listview
     QTimer::singleShot(0, this, [this]() {
@@ -37,13 +37,13 @@ ViewTerminal::ViewTerminal(QSharedPointer<CommandTerminal> obj, QWidget *parent)
 }
 
 
-ViewTerminal::~ViewTerminal()
+CommandViewTerminal::~CommandViewTerminal()
 {
     delete ui;
 }
 
 
-void ViewTerminal::sendUpdateCommand()
+void CommandViewTerminal::sendUpdateCommand()
 {
     QSharedPointer<CommandTerminal> obj = QSharedPointer<CommandTerminal>::create();
 

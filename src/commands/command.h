@@ -1,38 +1,47 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#include <QObject>
+#include <QByteArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QList>
+#include <QPair>
+#include <QSharedPointer>
+#include <QString>
+
+class CardSession;
 
 
-class Command : public QObject
+// A script command. Plain value type with a virtual interface: no QObject, no type enum, no casts.
+class Command
 {
-    Q_OBJECT
-
 public:
-    enum class ObjectType { BaseType, SendBytesType, ApduType, TerminalType };
+    // ordered key/value pairs: the script file keeps the keys in a human friendly order
+    using JsonFields = QList<QPair<QString, QJsonValue>>;
 
-    explicit Command(QObject *parent = nullptr)
-        : QObject{parent}
-    {
-    }
-
-    Command(const Command &copy)
-        : QObject()
-    {
-        commandName = copy.commandName;
-        expectedResponse = copy.expectedResponse;
-    }
-
+    Command() = default;
+    Command(const Command &) = default;
+    Command &operator=(const Command &) = default;
     virtual ~Command() = default;
 
-    virtual ObjectType type() const
-    {
-        return ObjectType::BaseType;
-    }
+    // stable identifier, also used as "type" in the script file ("SendBytes", "SendAPDU", "TerminalCmd")
+    virtual QString typeName() const = 0;
+    virtual QSharedPointer<Command> clone() const = 0;
+    // serialised fields without name and type
+    virtual JsonFields toJson() const = 0;
+    virtual void fromJson(const QJsonObject &object) = 0;
+    // runs the command on the card; the card's answer is stored in *response if given
+    virtual bool execute(CardSession &session, QByteArray *response = nullptr) const = 0;
 
 public:
     QString commandName;
     QByteArray expectedResponse;
+
+protected:
+    // true if there is no expected response or the response matches it
+    bool matchesExpected(const QByteArray &response) const;
 };
+
+Q_DECLARE_METATYPE(QSharedPointer<Command>)
 
 #endif

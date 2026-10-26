@@ -7,22 +7,13 @@
 class CommandSendBytes : public Command
 {
 public:
-    explicit CommandSendBytes(QObject *parent = nullptr)
-        : Command{parent}
-    {
-        commandName = "New Send Bytes";
-    }
+    CommandSendBytes() { commandName = "New Send Bytes"; }
 
-    CommandSendBytes(const CommandSendBytes &copy)
-        : Command(copy)
-    {
-        commandData = copy.commandData;
-    }
-
-    virtual Command::ObjectType type() const override
-    {
-        return Command::ObjectType::SendBytesType;
-    }
+    QString typeName() const override { return QStringLiteral("SendBytes"); }
+    QSharedPointer<Command> clone() const override;
+    JsonFields toJson() const override;
+    void fromJson(const QJsonObject &object) override;
+    bool execute(CardSession &session, QByteArray *response = nullptr) const override;
 
 public:
     QByteArray commandData;
