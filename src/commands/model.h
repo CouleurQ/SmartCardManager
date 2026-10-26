@@ -25,8 +25,9 @@ public:
 
         beginInsertRows(QModelIndex(), row, row + commands.size() - 1);
 
+        int pos = row;
         for (const auto &cmd : commands)
-            m_commands.insert(row, cmd);
+            m_commands.insert(pos++, cmd);
 
         endInsertRows();
     }
@@ -82,7 +83,7 @@ public:
     }
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override {
-        if (!index.isValid())
+        if (!index.isValid() || index.row() < 0 || index.row() >= m_commands.count())
             return QVariant();
 
         const QSharedPointer<Command> &command = m_commands[index.row()];
@@ -97,7 +98,7 @@ public:
 
     bool setData(const QModelIndex &index, const QVariant &value, int role) override {
         if (role == Qt::UserRole) {
-            if (index.isValid() && value.canConvert<QSharedPointer<Command>>()) {
+            if (index.isValid() && index.row() >= 0 && index.row() < m_commands.count() && value.canConvert<QSharedPointer<Command>>()) {
                 m_commands[index.row()] = value.value<QSharedPointer<Command>>();
                 emit dataChanged(index, index);
                 return true;

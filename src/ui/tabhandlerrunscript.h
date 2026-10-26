@@ -16,18 +16,18 @@
 #include "commands/model.h"
 
 
-class TabHandlerRunScript : public QWidget
+class TabHandlerRunScript : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit TabHandlerRunScript(QWidget *tabWidget, QWidget *parent = nullptr);
+    explicit TabHandlerRunScript(QWidget *tabWidget, QObject *parent = nullptr);
     ~TabHandlerRunScript();
 
 private:
     void replaceCurrentView(View *view);
     void showContextMenu(const QPoint &pos);
-    void onItemClicked(const QModelIndex &index);
+    void showItem(const QModelIndex &index);
     void onItemSelected(const QModelIndex &current, const QModelIndex &previous);
     void buttonActionAdd();
     void buttonActionLoad();
@@ -41,6 +41,7 @@ private:
 
 private:
     ScmApplication *app;
+    QWidget *tabWidget;
 
     RunScriptModel *model;
     QListView *listView;

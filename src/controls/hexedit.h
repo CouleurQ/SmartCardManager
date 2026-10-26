@@ -30,7 +30,7 @@ public:
     }
 
     void setData(const QByteArray data) {
-        setText(data.toHex(' ').toUpper());
+        setPlainText(QString::fromLatin1(data.toHex(' ').toUpper()));
     }
 
 protected:
@@ -52,33 +52,24 @@ protected:
             return;
         }
 
-        QString input = event->text().toUpper();
-        if (input.isEmpty()) {
-            QTextEdit::keyPressEvent(event);
-            return;
-        }
+        const QString input = event->text().toUpper();
+        const bool isShortcut = event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
 
-        QChar chr = input[0];
-        if (chr.isDigit() || (chr >= 'A' && chr <= 'F')) {
-            if (textCursor().hasSelection())
-                textCursor().removeSelectedText();
-
-            int len = QByteArray::fromHex(toPlainText().append(chr).replace(" ", "").toUtf8()).length();
-            if (len <= maxBytes)
-                insertHexChar(chr);
-        } else if (event->key() == Qt::Key_Backspace) {
+        if (event->key() == Qt::Key_Backspace) {
             handleBackspace();
         } else if (event->key() == Qt::Key_Delete) {
             handleDelete();
+        } else if (input.isEmpty() || isShortcut) {
+            QTextEdit::keyPressEvent(event);
+        } else if (isHexDigit(input[0])) {
+            insertNibbles(input.left(1));
         }
+        // every other printable key (including Return) is ignored
     }
 
     void insertFromMimeData(const QMimeData* source) override
     {
-        for (QChar chr : source->text().toUpper()) {
-            if (chr.isDigit() || (chr >= 'A' && chr <= 'F'))
-                insertHexChar(chr);
-        }
+        insertNibbles(source->text().toUpper());
     }
 
     void focusInEvent(QFocusEvent *event) override {
@@ -96,88 +87,95 @@ protected:
 private:
     int maxBytes;
 
+    static bool isHexDigit(QChar chr) {
+        return chr.isDigit() || (chr >= 'A' && chr <= 'F');
+    }
 
-    void insertHexChar(QChar ch)
-    {
-        QTextCursor cursor = textCursor();
-        int position = cursor.position();
+    // The text is "AA BB CC": every third character is a space, so a text position maps to a nibble index.
+    static int nibbleIndex(int textPosition) {
+        return textPosition - textPosition / 3;
+    }
 
-        // Insert the hex character
-        cursor.insertText(ch);
+    static int textPosition(int nibbleIndex) {
+        return nibbleIndex + nibbleIndex / 2;
+    }
 
-        reformatText();
+    QString rawNibbles() const {
+        return toPlainText().remove(' ');
+    }
 
-        if ((position % 3) == 2) {
-            cursor.setPosition(position + 2);  // Position after byte (space added)
-        } else {
-            cursor.setPosition(position + 1);  // Position after nibble
+    // Replaces the content with the grouped form of raw (keeps the undo history) and places the cursor.
+    void applyRaw(const QString &raw, int cursorNibble) {
+        QString formatted;
+        for (int i = 0; i < raw.length(); i++) {
+            if (i > 0 && i % 2 == 0)
+                formatted += ' ';
+            formatted += raw[i];
         }
+
+        if (formatted != toPlainText()) {
+            QTextCursor all(document());
+            all.beginEditBlock();
+            all.select(QTextCursor::Document);
+            all.insertText(formatted);
+            all.endEditBlock();
+        }
+
+        QTextCursor cursor(document());
+        cursor.setPosition(qBound(0, textPosition(cursorNibble), formatted.length()));
         setTextCursor(cursor);
+    }
+
+    // Replaces the selection (or inserts at the cursor) with the hex digits of text, honouring maxBytes.
+    void insertNibbles(const QString &text) {
+        QString digits;
+        for (QChar chr : text) {
+            if (isHexDigit(chr))
+                digits += chr;
+        }
+
+        QTextCursor cursor = textCursor();
+        int from = nibbleIndex(cursor.selectionStart());
+        int to = nibbleIndex(cursor.selectionEnd());
+
+        QString raw = rawNibbles();
+        raw.remove(from, to - from);
+
+        const int capacity = qMax(0, maxBytes * 2 - raw.length());
+        digits.truncate(capacity);
+
+        raw.insert(from, digits);
+        applyRaw(raw, from + digits.length());
     }
 
     void handleBackspace() {
         QTextCursor cursor = textCursor();
-        int position = cursor.position();
-        int newPosition = position;
+        int from = nibbleIndex(cursor.selectionStart());
+        int to = nibbleIndex(cursor.selectionEnd());
 
-        // Check if there is any selected text and delete it
-        if (cursor.hasSelection()) {
-            cursor.removeSelectedText();  // Remove selected text
-        } else {
-            if (position > 0) {
-                cursor.deletePreviousChar();
-                newPosition--;
+        if (from == to && from > 0)
+            from--;
 
-                // Check if the previous character is a space
-                if (position % 3 != 2) {
-                    cursor.deletePreviousChar();
-                    newPosition--;
-                }
-            }
-        }
-
-        reformatText();
-
-        cursor.setPosition((newPosition > 0) ? newPosition : 0);
-        setTextCursor(cursor);
+        QString raw = rawNibbles();
+        raw.remove(from, to - from);
+        applyRaw(raw, from);
     }
 
     void handleDelete() {
         QTextCursor cursor = textCursor();
-        int position = cursor.position();
-        int newPosition = position;
+        int from = nibbleIndex(cursor.selectionStart());
+        int to = nibbleIndex(cursor.selectionEnd());
 
-        // Check if there is any selected text and delete it
-        if (cursor.hasSelection()) {
-            cursor.removeSelectedText();  // Remove selected text
-        } else {
-            if (position > 0) {
-                qDebug() << position << " - " << position % 3;
-                cursor.deleteChar();
+        QString raw = rawNibbles();
+        if (from == to && to < raw.length())
+            to++;
 
-                // Check if the previous character is a space
-                if (position % 3 == 2)
-                    cursor.deleteChar();
-            }
-        }
-
-        reformatText();
-
-        cursor.setPosition(newPosition);
-        setTextCursor(cursor);
+        raw.remove(from, to - from);
+        applyRaw(raw, from);
     }
 
     void reformatText() {
-        // properly re-format with the spaces
-        QString raw = toPlainText().remove(' ');
-        QString formatted;
-        for (int i = 0; i < raw.length(); i++) {
-            if (i > 0 && i % 2 == 0) formatted += ' ';
-            formatted += raw[i];
-        }
-        blockSignals(true);
-        setPlainText(formatted);
-        blockSignals(false);
+        applyRaw(rawNibbles(), nibbleIndex(textCursor().position()));
     }
 };
 

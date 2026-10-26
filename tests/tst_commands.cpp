@@ -114,10 +114,8 @@ void TstCommands::copyConstructors()
 // BUG: enum ActionType { None, WarmReset = 0, ... } gives None and WarmReset the same value.
 void TstCommands::terminalActionNoneIsDistinctFromWarmReset()
 {
-    QEXPECT_FAIL("", "ActionType::None == ActionType::WarmReset (both 0), see CODE_REVIEW B-06", Continue);
     QVERIFY(CommandTerminal::ActionType::None != CommandTerminal::ActionType::WarmReset);
 
-    QEXPECT_FAIL("", "a command without action is serialised as \"WarmReset\"", Continue);
     QCOMPARE(CommandTerminal::getActionString(CommandTerminal::ActionType::None), QString());
 }
 
@@ -249,7 +247,6 @@ void TstCommands::modelInsertRowKeepsOrderOfMultipleCommands()
     model.insertRow(0, {makeSendBytes("x"), makeSendBytes("y")});
 
     QCOMPARE(model.rowCount(), 3);
-    QEXPECT_FAIL("", "batch is inserted in reverse order, see CODE_REVIEW B-12", Continue);
     QCOMPARE(names(model), QStringList({"x", "y", "a"}));
 }
 

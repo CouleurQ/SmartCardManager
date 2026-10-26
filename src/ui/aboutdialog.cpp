@@ -1,6 +1,7 @@
 #include "aboutdialog.h"
 #include "ui_aboutdialog.h"
 #include <QLabel>
+#include <QDate>
 
 
 AboutDialog::AboutDialog(QWidget *parent) :
@@ -9,15 +10,12 @@ AboutDialog::AboutDialog(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    setApplicationIcon(windowIcon().pixmap(48, 48));
+    setApplicationIcon(QPixmap(":/res/icons/logo.svg"));
     setApplicationName(QApplication::applicationName());
     setApplicationVersion(QApplication::applicationVersion());
-    setCopyrightInfo(tr("Copyright © 2025 %1").arg(QApplication::organizationName()));
-    setDescription(tr("<p>Platform independent application to handle smartcard communication, Java Card managemnt for Linux/Windows/MacOS.</p>"
-                                   "<p>Credits: anyone</p>"));
-    ui->iconLabel->setPixmap(QPixmap(":/res/icons/logo.svg").scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-
+    setCopyrightInfo(tr("Copyright © 2025-%1 %2").arg(QDate::currentDate().year()).arg(QApplication::organizationName()));
+    setDescription(tr("<p>Platform independent application to handle smartcard communication, Java Card management for Linux/Windows/MacOS.</p>"
+                                   "<p>Source: <a href=\"https://github.com/CouleurQ/SmartCardManager\">github.com/CouleurQ/SmartCardManager</a></p>"));
 }
 
 AboutDialog::~AboutDialog()

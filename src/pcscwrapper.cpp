@@ -3,120 +3,149 @@
 #include <pcsclite.h>
 #include <winscard.h>
 
+#include <cstring>
+#include <vector>
+
+
+namespace {
+QString errorText(const char *what, LONG rv)
+{
+    return QString("%1 (0x%2)").arg(QString::fromLatin1(what), QString::number(static_cast<quint32>(rv), 16));
+}
+}
+
 
 PcscWrapper::PcscWrapper(QObject* parent) : QObject(parent)
 {
 }
 
 
-bool PcscWrapper::connect(const QString &readerName)
+PcscWrapper::~PcscWrapper()
 {
-    LONG rv = SCardConnect(getContext(), readerName.toUtf8().constData(), SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, &hCard, &dwActiveProtocol);
-    if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to connect the card", QString::number(rv, 16)));
-    }
-
-    return (rv == SCARD_S_SUCCESS);
+    if (hCard != 0)
+        SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+    if (hContext != 0)
+        SCardReleaseContext(hContext);
 }
 
 
-bool PcscWrapper::disconnect(const QString &readerName)
+bool PcscWrapper::connect(const QString &readerName)
 {
-    LONG rv = SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+    if (hCard != 0)
+        disconnect(readerName);
+
+    SCARDCONTEXT context = getContext();
+    if (context == 0)
+        return false;
+
+    SCARDHANDLE card = 0;
+    DWORD protocol = 0;
+    LONG rv = SCardConnect(context, readerName.toUtf8().constData(), SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, &card, &protocol);
     if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to disconnect from card", QString::number(rv, 16)));
+        emit log(LogType::Error, errorText("Failed to connect the card", rv));
+        return false;
     }
+
+    hCard = card;
+    dwActiveProtocol = protocol;
+    return true;
+}
+
+
+bool PcscWrapper::disconnect(const QString &)
+{
+    if (hCard == 0)
+        return false;
+
+    LONG rv = SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+    if (rv != SCARD_S_SUCCESS)
+        emit log(LogType::Error, errorText("Failed to disconnect from card", rv));
 
     hCard = 0;
     return (rv == SCARD_S_SUCCESS);
 }
 
 
-bool PcscWrapper::reset(const QString &readerName)
+bool PcscWrapper::reset(const QString &)
 {
     if (hCard == 0)
         return false;
 
     LONG rv = SCardReconnect(hCard, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, SCARD_RESET_CARD, &dwActiveProtocol);
     if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to reset the card", QString::number(rv, 16)));
+        emit log(LogType::Error, errorText("Failed to reset the card", rv));
         hCard = 0;
-        return rv;
+        return false;
     }
 
-    return (rv == SCARD_S_SUCCESS);
+    return true;
 }
 
 
-bool PcscWrapper::isConnected(const QString &readerName)
+bool PcscWrapper::isConnected(const QString &)
 {
     return (hCard != 0);
 }
 
 
-QByteArray PcscWrapper::send(const QString &readerName, const QByteArray command)
+QByteArray PcscWrapper::send(const QString &, const QByteArray command)
 {
     if (hCard == 0) {
         emit log(LogType::Error, "Card not connected");
         return QByteArray();
     }
 
-    const unsigned char *sendBuffer = reinterpret_cast<const unsigned char*>(command.constData());
-    DWORD sendLength = command.size();
-
-    unsigned char recvBuffer[258];
-    DWORD recvLength = sizeof(recvBuffer);
-
-    const SCARD_IO_REQUEST *pioSendPci = nullptr;
+    const SCARD_IO_REQUEST *pioSendPci = SCARD_PCI_RAW;
     if (dwActiveProtocol == SCARD_PROTOCOL_T0)
         pioSendPci = SCARD_PCI_T0;
     else if (dwActiveProtocol == SCARD_PROTOCOL_T1)
         pioSendPci = SCARD_PCI_T1;
 
-    LONG rv = SCardTransmit(hCard, pioSendPci, sendBuffer, sendLength, NULL, recvBuffer, &recvLength);
+    // large enough for extended length responses (65535 + SW1 SW2)
+    std::vector<unsigned char> recvBuffer(65538, 0);
+    DWORD recvLength = static_cast<DWORD>(recvBuffer.size());
 
+    LONG rv = SCardTransmit(hCard, pioSendPci, reinterpret_cast<const unsigned char*>(command.constData()),
+                            static_cast<DWORD>(command.size()), nullptr, recvBuffer.data(), &recvLength);
     if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to send command", QString::number(rv, 16)));
+        emit log(LogType::Error, errorText("Failed to send command", rv));
+        return QByteArray();
     }
 
-    return QByteArray(reinterpret_cast<char*>(recvBuffer), recvLength);
+    return QByteArray(reinterpret_cast<const char*>(recvBuffer.data()), static_cast<qsizetype>(recvLength));
 }
 
 
 QStringList PcscWrapper::getReaders()
 {
-    if (getContext() == 0)
+    SCARDCONTEXT context = getContext();
+    if (context == 0)
         return QStringList();
 
-    QStringList cardReaderList;
-
-    // Get the list of readers
     DWORD dwReaders = 0;
-    LONG rv = SCardListReaders(getContext(), NULL, NULL, &dwReaders);
-    if (rv == 0x8010002e) {
+    LONG rv = SCardListReaders(context, nullptr, nullptr, &dwReaders);
+    if (rv == SCARD_E_NO_READERS_AVAILABLE) {
         emit log(LogType::Warning, "No PC/SC readers connected");
         return QStringList();
     } else if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to get reader list size", QString::number(rv, 16)));
+        emit log(LogType::Error, errorText("Failed to get reader list size", rv));
         return QStringList();
     }
 
-    char *mszReaders = new char[dwReaders];
-    rv = SCardListReaders(getContext(), nullptr, mszReaders, &dwReaders);
+    std::vector<char> mszReaders(dwReaders, '\0');
+    rv = SCardListReaders(context, nullptr, mszReaders.data(), &dwReaders);
     if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to get reader list", QString::number(rv, 16)));
+        emit log(LogType::Error, errorText("Failed to get reader list", rv));
         return QStringList();
     }
 
-    // Parse the readers into a QStringList
-    char *reader = mszReaders;
+    // multi-string: "reader1\0reader2\0\0"
+    QStringList cardReaderList;
+    const char *reader = mszReaders.data();
     while (*reader != '\0') {
         cardReaderList += QString::fromUtf8(reader);
         reader += strlen(reader) + 1;
     }
-
-    // Clean up
-    SCardFreeMemory(getContext(), mszReaders);
 
     return cardReaderList;
 }
@@ -124,17 +153,15 @@ QStringList PcscWrapper::getReaders()
 
 SCARDCONTEXT PcscWrapper::getContext()
 {
-    static SCARDCONTEXT hContext = 0;
-
     if (hContext != 0)
         return hContext;
 
-    LONG ret = SCardEstablishContext(SCARD_SCOPE_SYSTEM, nullptr, nullptr, &hContext);
-    if (ret != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, QString("%1 (0x%2)").arg("Failed to establish context - PCSC service not running?", QString::number(ret, 16)));
+    LONG rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, nullptr, nullptr, &hContext);
+    if (rv != SCARD_S_SUCCESS) {
+        hContext = 0;
+        emit log(LogType::Error, errorText("Failed to establish context - PCSC service not running?", rv));
         return 0;
     }
 
     return hContext;
 }
-

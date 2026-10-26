@@ -17,25 +17,50 @@
 #include <QStandardItem>
 #include <QMessageBox>
 #include <QMenu>
+#include <QDateTime>
+#include <QUuid>
+#include <QTextStream>
 #include <QItemSelectionModel>
 
 
 
-TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QWidget *parent)
-    : QWidget{parent}
+namespace {
+// JSON-encodes one string (quotes, backslashes, control characters) while we keep writing the file by hand.
+QString jsonString(const QString &text)
+{
+    const QByteArray array = QJsonDocument(QJsonArray{text}).toJson(QJsonDocument::Compact);
+    return QString::fromUtf8(array.mid(1, array.size() - 2));
+}
+
+QString hexString(const QByteArray &data)
+{
+    return QString::fromLatin1(data.toHex(' ').toUpper());
+}
+}
+
+
+TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QObject *parent)
+    : QObject{parent}
+    , tabWidget(tabWidget)
 {
     app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
 
     // load the widgets
-    assert((buttonLoad = tabWidget->findChild<QPushButton *>("runScriptButtonLoad")) != nullptr);
-    assert((buttonSave = tabWidget->findChild<QPushButton *>("runScriptButtonSave")) != nullptr);
-    assert((stackedWidget = tabWidget->findChild<QStackedWidget *>("runScriptStackedWidget")) != nullptr);
-    assert((buttonAdd = tabWidget->findChild<QPushButton *>("runScriptButtonAdd")) != nullptr);
-    assert((listView = tabWidget->findChild<QListView *>("runScriptListView")) != nullptr);
-    assert((lineEditFilename = tabWidget->findChild<QLineEdit *>("runScriptLineEditFilename")) != nullptr);
+    buttonLoad = tabWidget->findChild<QPushButton *>("runScriptButtonLoad");
+    Q_ASSERT(buttonLoad != nullptr);
+    buttonSave = tabWidget->findChild<QPushButton *>("runScriptButtonSave");
+    Q_ASSERT(buttonSave != nullptr);
+    stackedWidget = tabWidget->findChild<QStackedWidget *>("runScriptStackedWidget");
+    Q_ASSERT(stackedWidget != nullptr);
+    buttonAdd = tabWidget->findChild<QPushButton *>("runScriptButtonAdd");
+    Q_ASSERT(buttonAdd != nullptr);
+    listView = tabWidget->findChild<QListView *>("runScriptListView");
+    Q_ASSERT(listView != nullptr);
+    lineEditFilename = tabWidget->findChild<QLineEdit *>("runScriptLineEditFilename");
+    Q_ASSERT(lineEditFilename != nullptr);
 
     // Add actions to the menu
-    QMenu *menu = new QMenu(this);
+    QMenu *menu = new QMenu(tabWidget);
     QAction *action1 = menu->addAction("Send Bytes");
     action1->setData(1);
     QAction *action2 = menu->addAction("Send APDU");
@@ -55,8 +80,6 @@ TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QWidget *parent)
     connect(action1, &QAction::triggered, this, &TabHandlerRunScript::buttonActionAdd);
     connect(action2, &QAction::triggered, this, &TabHandlerRunScript::buttonActionAdd);
     connect(action3, &QAction::triggered, this, &TabHandlerRunScript::buttonActionAdd);
-    connect(listView, &QListView::clicked, this, &TabHandlerRunScript::onItemClicked);
-    connect(listView, &QListView::doubleClicked, this, &TabHandlerRunScript::onItemClicked);
     connect(listView, &QListView::customContextMenuRequested, this, &TabHandlerRunScript::showContextMenu);
     connect(listView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TabHandlerRunScript::onItemSelected);
 }
@@ -71,7 +94,7 @@ void TabHandlerRunScript::showContextMenu(const QPoint &pos)
 {
     QModelIndex index = listView->indexAt(pos);
 
-    QMenu menu;
+    QMenu menu(tabWidget);
     if (index.isValid()) {
         // Item right click
         menu.addAction("Delete", this, &TabHandlerRunScript::buttonActionDelete);
@@ -91,9 +114,11 @@ void TabHandlerRunScript::showContextMenu(const QPoint &pos)
 }
 
 
-void TabHandlerRunScript::onItemClicked(const QModelIndex &index)
+void TabHandlerRunScript::showItem(const QModelIndex &index)
 {
     QSharedPointer<Command> item = model->itemFromIndex(index);
+    if (!item)
+        return;
 
     switch(item->type()) {
     case Command::ObjectType::SendBytesType:
@@ -117,25 +142,25 @@ void TabHandlerRunScript::onItemSelected(const QModelIndex &current, const QMode
     (void) previous;
 
     if (current.isValid())
-        onItemClicked(current);
+        showItem(current);
+    else
+        replaceCurrentView(nullptr);
 }
 
 
 void TabHandlerRunScript::replaceCurrentView(View *view) {
-    int currentIndex = stackedWidget->currentIndex();
-    if (currentIndex != -1) {
-        QWidget *currentView = stackedWidget->widget(currentIndex);
+    while (stackedWidget->count() > 0) {
+        QWidget *currentView = stackedWidget->widget(0);
         stackedWidget->removeWidget(currentView);
-        disconnect(view);
-        delete currentView;
+        currentView->disconnect(this);
+        currentView->deleteLater();
     }
 
     if (view != nullptr) {
         view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         stackedWidget->addWidget(view);
-        stackedWidget->setCurrentIndex(stackedWidget->indexOf(view));
+        stackedWidget->setCurrentWidget(view);
 
-        // Connect slots
         connect(view, &View::notifyUpdateCommand, this, &TabHandlerRunScript::receiveUpdateCommand);
     }
 }
@@ -163,21 +188,18 @@ void TabHandlerRunScript::buttonActionDuplicate()
             QSharedPointer<CommandSendBytes> newItem = QSharedPointer<CommandSendBytes>::create(CommandSendBytes(*qSharedPointerDynamicCast<CommandSendBytes>(item)));
             newItem->commandName.append("_copy");
             model->addCommand(newItem);
-            replaceCurrentView(new ViewSendBytes(qSharedPointerDynamicCast<CommandSendBytes>(newItem)));
             break;
         }
         case Command::ObjectType::ApduType: {
             QSharedPointer<CommandApdu> newItem = QSharedPointer<CommandApdu>::create(CommandApdu(*qSharedPointerDynamicCast<CommandApdu>(item)));
             newItem->commandName.append("_copy");
             model->addCommand(newItem);
-            replaceCurrentView(new ViewApdu(qSharedPointerDynamicCast<CommandApdu>(item)));
             break;
         }
         case Command::ObjectType::TerminalType: {
             QSharedPointer<CommandTerminal> newItem = QSharedPointer<CommandTerminal>::create(CommandTerminal(*qSharedPointerDynamicCast<CommandTerminal>(item)));
             newItem->commandName.append("_copy");
             model->addCommand(newItem);
-            replaceCurrentView(new ViewTerminal(qSharedPointerDynamicCast<CommandTerminal>(item)));
             break;
         }
         case Command::ObjectType::BaseType:
@@ -236,15 +258,12 @@ void TabHandlerRunScript::buttonActionAdd()
     switch (action->data().toInt()) {
     case 1:
         model->addCommand(QSharedPointer<CommandSendBytes>::create(CommandSendBytes()));
-        replaceCurrentView(new ViewSendBytes());
         break;
     case 2:
         model->addCommand(QSharedPointer<CommandApdu>::create(CommandApdu()));
-        replaceCurrentView(new ViewApdu());
         break;
     case 3:
         model->addCommand(QSharedPointer<CommandTerminal>::create(CommandTerminal()));
-        replaceCurrentView(new ViewTerminal());
         break;
     }
 
@@ -295,9 +314,10 @@ void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
 
 
     // Read and parse the JSON data into a QJsonDocument
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
     if (doc.isNull()) {
-        qWarning() << "Failed to parse script file";
+        emit logString(LogType::Error, QString("%1: %2").arg("Failed to parse script file", parseError.errorString()));
         return;
     }
 
@@ -315,17 +335,16 @@ void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
         // Now handle the apduList, which is an array
         QJsonArray items = jsonObject["items"].toArray();
         for (const QJsonValue &value : items) {
-            QJsonObject item = value.toObject();
+            const QJsonObject item = value.toObject();
             QString name = item["name"].toString();
             QString type = item["type"].toString();
             if (type == "SendBytes") {
                 qDebug() << "Adding SENDBYTES " + name;
                 QSharedPointer<CommandSendBytes> command = QSharedPointer<CommandSendBytes>::create(CommandSendBytes());
                 command->commandName = name;
-                command->commandData = Utility::hexStringToByteArray(item["cmd"].toString());
+                command->commandData = Utility::hexStringToByteArray(item["cmd"].toString(item["data"].toString()));
                 command->expectedResponse = Utility::hexStringToByteArray(item["expectedResponse"].toString());
                 model->addCommand(command);
-                replaceCurrentView(new ViewSendBytes(command));
             } else if (type == "SendAPDU") {
                 qDebug() << "Adding SENDAPDU " + name;
                 QSharedPointer<CommandApdu> command = QSharedPointer<CommandApdu>::create(CommandApdu());
@@ -334,22 +353,20 @@ void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
                 command->ins = Utility::hexStringToByteArray(item["ins"].toString());
                 command->p1 = Utility::hexStringToByteArray(item["p1"].toString());
                 command->p2 = Utility::hexStringToByteArray(item["p2"].toString());
-                command->commandData = Utility::hexStringToByteArray(item["data"].toString());
+                command->commandData = Utility::hexStringToByteArray(item["data"].toString(item["cmd"].toString()));
                 command->le = Utility::hexStringToByteArray(item["le"].toString());
                 command->expectedResponse = Utility::hexStringToByteArray(item["expectedResponse"].toString());
                 model->addCommand(command);
-                replaceCurrentView(new ViewApdu(command));
             } else if (type == "TerminalCmd") {
                 qDebug() << "Adding TERMINALCMD " + name;
                 QSharedPointer<CommandTerminal> command = QSharedPointer<CommandTerminal>::create(CommandTerminal());
                 command->commandName = name;
                 for (int i = 0; i < (int)CommandTerminal::ActionType::_count_; ++i) {
                     QString enumString = CommandTerminal::getActionString(static_cast<CommandTerminal::ActionType>(i));
-                    if (enumString == item["action"])
+                    if (enumString == item["action"].toString())
                         command->action = static_cast<CommandTerminal::ActionType>(i);
                 }
                 model->addCommand(command);
-                replaceCurrentView(new ViewTerminal(command));
             }
         }
 
@@ -357,11 +374,13 @@ void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
         lineEditFilename->setText(filePath);
 
         // focus the first item
+        if (model->rowCount() == 0)
+            return;
         QModelIndex index = model->index(0, 0);
         listView->setCurrentIndex(index);
         listView->scrollTo(index);
         listView->selectionModel()->select(index, QItemSelectionModel::ClearAndSelect);
-    } catch (const std::exception e) {
+    } catch (const std::exception &e) {
         emit logString(LogType::Error, e.what());
     }
 }
@@ -369,7 +388,7 @@ void TabHandlerRunScript::_buttonActionLoad(const QString &filePath)
 
 void TabHandlerRunScript::buttonActionSave()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, "Save File", "", "JSON Files (*.json);;All Files (*)");
+    QString filePath = QFileDialog::getSaveFileName(tabWidget, "Save File", "", "JSON Files (*.json);;All Files (*)");
 
     if (filePath.isEmpty())
         return;
@@ -389,41 +408,41 @@ void TabHandlerRunScript::buttonActionSave()
         QTextStream out(&file);
         out << "{\n";
         out << "  \"version\": \"1.0\",\n";
-        out << "  \"dateTime\": \"" << QDateTime::currentDateTime().toString(Qt::ISODate) << "\",\n";
-        out << "  \"id\": \"" << QUuid::createUuid().toString().remove('{').remove('}') << "\",\n";
+        out << "  \"dateTime\": " << jsonString(QDateTime::currentDateTime().toString(Qt::ISODate)) << ",\n";
+        out << "  \"id\": " << jsonString(QUuid::createUuid().toString(QUuid::WithoutBraces)) << ",\n";
         out << "  \"items\": [\n";
 
         for (int row = 0; row < listView->model()->rowCount(); ++row) {
             QSharedPointer<Command> item = model->item(row);
 
             out << "    {\n";
-            out << "      \"name\": \"" << item->commandName << "\",\n";
-            out << "      \"seq\": \"" << row << "\",\n";
+            out << "      \"name\": " << jsonString(item->commandName) << ",\n";
+            out << "      \"seq\": " << row << ",\n";
 
             switch(item->type()) {
             case Command::ObjectType::SendBytesType: {
                 QSharedPointer<CommandSendBytes> specificItem = qSharedPointerDynamicCast<CommandSendBytes>(item);
                 out << "      \"type\": \"SendBytes\",\n";
-                out << "      \"cmd\": \"" << QString(specificItem->commandData.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"expectedResponse\": \"" << QString(specificItem->expectedResponse.toHex(' ').toUpper()) << "\"\n";
+                out << "      \"cmd\": " << jsonString(hexString(specificItem->commandData)) << ",\n";
+                out << "      \"expectedResponse\": " << jsonString(hexString(specificItem->expectedResponse)) << "\n";
                 break;
             }
             case Command::ObjectType::ApduType: {
                 QSharedPointer<CommandApdu> specificItem = qSharedPointerDynamicCast<CommandApdu>(item);
                 out << "      \"type\": \"SendAPDU\",\n";
-                out << "      \"cla\": \"" << QString(specificItem->cla.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"ins\": \"" << QString(specificItem->ins.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"p1\": \"" << QString(specificItem->p1.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"p2\": \"" << QString(specificItem->p2.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"cmd\": \"" << QString(specificItem->commandData.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"le\": \"" << QString(specificItem->le.toHex(' ').toUpper()) << "\",\n";
-                out << "      \"expectedResponse\": \"" << QString(specificItem->expectedResponse.toHex(' ').toUpper()) << "\"\n";
+                out << "      \"cla\": " << jsonString(hexString(specificItem->cla)) << ",\n";
+                out << "      \"ins\": " << jsonString(hexString(specificItem->ins)) << ",\n";
+                out << "      \"p1\": " << jsonString(hexString(specificItem->p1)) << ",\n";
+                out << "      \"p2\": " << jsonString(hexString(specificItem->p2)) << ",\n";
+                out << "      \"data\": " << jsonString(hexString(specificItem->commandData)) << ",\n";
+                out << "      \"le\": " << jsonString(hexString(specificItem->le)) << ",\n";
+                out << "      \"expectedResponse\": " << jsonString(hexString(specificItem->expectedResponse)) << "\n";
                 break;
             }
             case Command::ObjectType::TerminalType: {
                 QSharedPointer<CommandTerminal> specificItem = qSharedPointerDynamicCast<CommandTerminal>(item);
                 out << "      \"type\": \"TerminalCmd\",\n";
-                out << "      \"action\": \"" << CommandTerminal::getActionString(specificItem->action) << "\"\n";
+                out << "      \"action\": " << jsonString(CommandTerminal::getActionString(specificItem->action)) << "\n";
                 break;
             }
             case Command::ObjectType::BaseType:
@@ -440,8 +459,9 @@ void TabHandlerRunScript::buttonActionSave()
         out << "}\n";
         file.close();
 
-        QMessageBox::information(this, "Success", "File saved successfully.");
-    } catch (std::exception e) {
+        lineEditFilename->setText(filePath);
+        emit logString(LogType::Info, QString("%1: %2").arg("Script saved", filePath));
+    } catch (const std::exception &e) {
         emit logString(LogType::Error, e.what());
     }
 }

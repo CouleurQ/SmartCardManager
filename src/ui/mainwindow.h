@@ -4,6 +4,8 @@
 #include <QMainWindow>
 #include <QStandardItemModel>
 #include <QComboBox>
+#include <QLineEdit>
+#include <QSvgWidget>
 
 #include "scmapplication.h"
 #include "logview.h"
@@ -33,6 +35,8 @@ private:
 
     LogView *logView;
     QComboBox *cardReaderCombo;
+    QLineEdit *statusLine;
+    QSvgWidget *connectionIcon;
     TabHandlerSendCommand *tabSendCommand;
     TabHandlerRunScript *tabRunScript;
 

@@ -227,7 +227,6 @@ void TstRunScript::deletingLastCommandRemovesItsView()
     tab->buttonActionDelete();
 
     QCOMPARE(model->rowCount(), 0);
-    QEXPECT_FAIL("", "stale editor remains after deleting the last command, CODE_REVIEW B-13", Continue);
     QCOMPARE(tab->stackedWidget->count(), 0);
 }
 
@@ -381,7 +380,6 @@ void TstRunScript::saveLoadRoundTripKeepsApduData()
     QCOMPARE(loaded->commandName, QString("Select"));
     QCOMPARE(loaded->ins, QByteArray::fromHex("A4"));
     QCOMPARE(loaded->expectedResponse, QByteArray::fromHex("9000"));
-    QEXPECT_FAIL("", "APDU data saved as \"cmd\" but loaded from \"data\", CODE_REVIEW B-01", Continue);
     QCOMPARE(loaded->commandData, QByteArray::fromHex("A000000151"));
 }
 
@@ -400,7 +398,6 @@ void TstRunScript::saveEscapesSpecialCharactersInNames()
     QVERIFY(f.open(QIODevice::ReadOnly));
     QJsonParseError err;
     QJsonDocument::fromJson(f.readAll(), &err);
-    QEXPECT_FAIL("", "names with quotes/backslashes produce invalid JSON, CODE_REVIEW B-02", Continue);
     QCOMPARE(err.error, QJsonParseError::NoError);
 }
 

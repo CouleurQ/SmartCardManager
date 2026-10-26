@@ -13,7 +13,8 @@ class PcscWrapper : public QObject
     Q_OBJECT
 
 public:
-    PcscWrapper(QObject* parent = nullptr);
+    explicit PcscWrapper(QObject* parent = nullptr);
+    ~PcscWrapper() override;
 
     QStringList getReaders();
     bool connect(const QString &reader);
@@ -23,6 +24,7 @@ public:
     QByteArray send(const QString &reader, const QByteArray command);
 
 private:
+    SCARDCONTEXT hContext = 0;
     SCARDHANDLE hCard = 0;
     DWORD dwActiveProtocol = 0;
 

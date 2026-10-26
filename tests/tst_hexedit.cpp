@@ -149,7 +149,6 @@ void TstHexEdit::deleteInTheMiddle()
     QTest::keyClick(edit, Qt::Key_Home);
     QTest::keyClick(edit, Qt::Key_Right);    // cursor at 1
     QTest::keyClick(edit, Qt::Key_Delete);
-    QEXPECT_FAIL("", "Delete does not regroup the remaining nibbles, CODE_REVIEW B-16", Continue);
     QCOMPARE(edit->toPlainText(), QString("0A 4"));
 }
 
@@ -160,7 +159,6 @@ void TstHexEdit::deleteAtStartRemovesFirstNibble()
     QTest::keyClick(edit, Qt::Key_Home);
     QTest::keyClick(edit, Qt::Key_Delete);
 
-    QEXPECT_FAIL("", "Delete at position 0 is a no-op, CODE_REVIEW B-07", Continue);
     QCOMPARE(edit->toPlainText(), QString("0A 4"));
 }
 
@@ -208,7 +206,6 @@ void TstHexEdit::pasteViaMimeDataHonoursMaxBytes()
     mime.setText("00A404");
     edit->insertFromMimeData(&mime);
 
-    QEXPECT_FAIL("", "paste ignores maxBytes, CODE_REVIEW B-08", Continue);
     QVERIFY(edit->length() <= 1);
 }
 

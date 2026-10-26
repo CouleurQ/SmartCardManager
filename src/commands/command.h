@@ -17,6 +17,7 @@ public:
     }
 
     Command(const Command &copy)
+        : QObject()
     {
         commandName = copy.commandName;
         expectedResponse = copy.expectedResponse;

@@ -1,6 +1,5 @@
 #include "viewapdu.h"
 #include "ui_viewapdu.h"
-#include "commandapdu.h"
 #include "commands/commandapdu.h"
 
 #include <QTimer>

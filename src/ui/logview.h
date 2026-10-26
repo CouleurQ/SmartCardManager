@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QStandardItemModel>
 #include <QTreeView>
+#include <QHash>
+#include <QIcon>
 
 #include "global.h"
 
@@ -17,12 +19,16 @@ public:
 
     void addLogEntry(LogType type, const QString &message, const QString &ascii = nullptr);
     void addLogEntry(LogType type, const QByteArray &message);
+    void addLogEntry(LogType type, const char *message) { addLogEntry(type, QString::fromUtf8(message)); }
 
 private:
     QTreeView *treeView;
     QStandardItemModel *model;
 
+    QHash<LogType, QIcon> iconCache;
+
     void showContextMenu(const QPoint &pos);
+    void saveLog();
 
     QIcon iconForType(LogType type);
     QString nameForType(LogType type);

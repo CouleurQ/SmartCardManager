@@ -28,6 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
+    Q_ASSERT_X(app, "MainWindow", "QApplication must be a ScmApplication");
 
     // Toolbar
     cardReaderCombo = new QComboBox(this);
@@ -36,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     toolbar->insertWidget(ui->actionRefresh, cardReaderCombo);
 
     // Statusbar
-    QLineEdit* statusLine = new QLineEdit("Ready");
+    statusLine = new QLineEdit("Ready");
     statusLine->setReadOnly(true);
     statusLine->setFocusPolicy(Qt::NoFocus);
     statusLine->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -53,9 +54,9 @@ MainWindow::MainWindow(QWidget *parent)
     spacer->setFixedSize(1, 1);
     ui->statusbar->addPermanentWidget(spacer);
 
-    svgIcon = new QSvgWidget(":/res/icons/action_disconnect.svg");
-    svgIcon->setFixedSize(16, 16);
-    ui->statusbar->addPermanentWidget(svgIcon);
+    connectionIcon = new QSvgWidget(":/res/icons/action_disconnect.svg");
+    connectionIcon->setFixedSize(16, 16);
+    ui->statusbar->addPermanentWidget(connectionIcon);
 
     // Splitter
     ui->splitterTab->setSizes({250, 550});
@@ -65,8 +66,8 @@ MainWindow::MainWindow(QWidget *parent)
     logView = new LogView(ui->logView, this);
 
     // TabViews
-    tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand);
-    tabRunScript = new TabHandlerRunScript(ui->tabRunScript);
+    tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand, this);
+    tabRunScript = new TabHandlerRunScript(ui->tabRunScript, this);
 
     // Menubar
     connect(ui->actionExit, &QAction::triggered, this, &QMainWindow::close);
@@ -87,6 +88,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(tabSendCommand, &TabHandlerSendCommand::logBytes, this, &MainWindow::logBytes);
     connect(tabSendCommand, &TabHandlerSendCommand::logString, this, &MainWindow::logString);
     connect(tabSendCommand, &TabHandlerSendCommand::update, this, &MainWindow::updateUiState);
+    connect(tabRunScript, &TabHandlerRunScript::logBytes, this, &MainWindow::logBytes);
+    connect(tabRunScript, &TabHandlerRunScript::logString, this, &MainWindow::logString);
+    connect(tabRunScript, &TabHandlerRunScript::update, this, &MainWindow::updateUiState);
 
     // asynchronous call to update the combobox in the toolbar
     QTimer::singleShot(0, this, &MainWindow::actionRefresh);
@@ -97,6 +101,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    // the dock emits visibilityChanged while the window is being torn down
+    ui->dockWidget->disconnect(this);
     delete ui;
 }
 
@@ -122,23 +128,14 @@ void MainWindow::updateUiState()
     ui->actionDisconnect->setEnabled(connected);
     ui->actionReset->setEnabled(connected);
 
-    // Statusbar icon
-    QList<QWidget*> widgets = statusBar()->findChildren<QWidget*>();
-    if (!widgets.isEmpty()) {
-        QWidget *lastWidget = widgets.last();
-
-        // Cast it to the correct type (QSvgWidget in this case)
-        QSvgWidget *svgWidget = qobject_cast<QSvgWidget*>(lastWidget);
-
-        if (svgWidget) {
-            // Update the SVG widget, e.g., load a new SVG file
-            if (connected)
-                svgWidget->load(QString(":/res/icons/action_connect.svg"));
-            else
-                svgWidget->load(QString(":/res/icons/action_disconnect.svg"));
-
-        }
-    }
+    // Statusbar
+    connectionIcon->load(QString(connected ? ":/res/icons/action_connect.svg" : ":/res/icons/action_disconnect.svg"));
+    if (connected)
+        statusLine->setText(QString("Connected: %1").arg(app->cardReader));
+    else if (app->cardReader.isEmpty())
+        statusLine->setText("No reader selected");
+    else
+        statusLine->setText(QString("Ready: %1").arg(app->cardReader));
 }
 
 
@@ -168,18 +165,28 @@ void MainWindow::actionReset()
 
 void MainWindow::actionRefresh()
 {
-    cardReaderCombo->clear();
+    const QString previousReader = app->cardReader;
 
-    QStringList readers = app->pcsc->getReaders();
-    for (QStringList::const_iterator it = readers.constBegin(); it != readers.constEnd(); ++it) {
-        cardReaderCombo->addItem(*it);
-    }
-    updateUiState();
+    cardReaderCombo->blockSignals(true);
+    cardReaderCombo->clear();
+    cardReaderCombo->addItems(app->pcsc->getReaders());
+    const int previousIndex = cardReaderCombo->findText(previousReader);
+    cardReaderCombo->setCurrentIndex(previousIndex >= 0 ? previousIndex : (cardReaderCombo->count() > 0 ? 0 : -1));
+    cardReaderCombo->blockSignals(false);
+
+    // a reader that went away invalidates the connection and the selection
+    if (cardReaderCombo->currentText() != previousReader)
+        actionReaderChanged();
+    else
+        updateUiState();
 }
 
 
 void MainWindow::actionReaderChanged()
 {
+    if (app->pcsc->isConnected(app->cardReader))
+        app->pcsc->disconnect(app->cardReader);
+
     app->cardReader = cardReaderCombo->currentText();
     updateUiState();
 }
@@ -201,9 +208,8 @@ void MainWindow::actionLogWindowState() {
 
 void MainWindow::actionAbout()
 {
-    AboutDialog *aboutDialog = new AboutDialog(this);
-    aboutDialog->exec();
-    delete aboutDialog;
+    AboutDialog aboutDialog(this);
+    aboutDialog.exec();
 }
 
 

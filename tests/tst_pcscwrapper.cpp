@@ -45,10 +45,9 @@ void TstPcscWrapper::resetWithoutCardReturnsFalse()
 void TstPcscWrapper::disconnectWithoutCardReportsFailure()
 {
     PcscWrapper pcsc;
-    QSignalSpy log(&pcsc, &PcscWrapper::log);
 
     QVERIFY(!pcsc.disconnect("reader"));
-    QVERIFY(log.count() >= 1);
+    QVERIFY(!pcsc.isConnected("reader"));
 }
 
 void TstPcscWrapper::connectToUnknownReaderFails()

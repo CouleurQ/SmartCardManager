@@ -2,74 +2,93 @@
 #include "ui/mainwindow.h"
 
 #include <QApplication>
-#include <QSharedMemory>
+#include <QDebug>
 #include <QLocalServer>
 #include <QLocalSocket>
-#include <QMessageBox>
-#include <QFile>
+#include <QSocketNotifier>
 #include <QDir>
 
 #include <csignal>
+#include <unistd.h>
+#include <sys/socket.h>
 
 
-void signalHandler(int signal) {
-    qDebug() << "Received signal:" << signal << ", cleaning up";
+namespace {
+int signalFd[2] = {-1, -1};
 
-    // remove unix socket for single instance (just in case)
-    const QString socketPath = QDir::tempPath() + QDir::separator() + QCoreApplication::applicationName();
-    QFile::remove(socketPath);
+// Async-signal-safe: only write one byte to the socketpair, the Qt event loop does the rest.
+void signalHandler(int signal)
+{
+    const char byte = static_cast<char>(signal);
+    ssize_t ignored = ::write(signalFd[0], &byte, 1);
+    (void) ignored;
+}
 
-    QCoreApplication::quit();
+void installSignalHandlers(QObject *parent)
+{
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd) != 0)
+        return;
+
+    auto *notifier = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, parent);
+    QObject::connect(notifier, &QSocketNotifier::activated, parent, [notifier]() {
+        notifier->setEnabled(false);
+        char byte;
+        ssize_t ignored = ::read(signalFd[1], &byte, 1);
+        (void) ignored;
+        qDebug() << "Received signal" << static_cast<int>(byte) << "- shutting down";
+        QCoreApplication::quit();
+    });
+
+    struct sigaction action {};
+    action.sa_handler = signalHandler;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = SA_RESTART;
+    sigaction(SIGINT, &action, nullptr);
+    sigaction(SIGTERM, &action, nullptr);
+}
 }
 
 
 int main(int argc, char *argv[])
 {
-    qDebug() << "Starting SmartCardManager";
     ScmApplication application(argc, argv);
 
     application.setApplicationName("SmartCardManager");
     application.setApplicationVersion("0.1");
-    application.setOrganizationName("couleurq@gmail.com");
-    application.setOrganizationDomain("yourdomain.com");
+    application.setOrganizationName("CouleurQ");
+    application.setOrganizationDomain("github.com");
 
-    // Install signal handlers
-    signal(SIGINT, signalHandler);
-    signal(SIGTERM, signalHandler);
+    installSignalHandlers(&application);
 
     const QString socketPath = QDir::tempPath() + QDir::separator() + QCoreApplication::applicationName();
     QLocalSocket socket;
     socket.connectToServer(socketPath);
 
     if (socket.waitForConnected(500)) {
-        // Another instance is already running
+        // Another instance is already running - the connection itself tells it to raise its window
         qDebug() << "Switching to already existing instance";
         return 0;
     }
 
-    // No other instance is running, so this is the first instance
+    // No other instance is running. A leftover socket file of a crashed instance would block listen().
+    QLocalServer::removeServer(socketPath);
     QLocalServer server;
-    if (!server.listen(socketPath)) {
+    if (!server.listen(socketPath))
         qWarning() << "Cannot start in single instance mode";
-    }
 
-    // create the main window
     MainWindow w;
     w.resize(800, 600);
     w.show();
 
-    // listen code to raise the window again instead of second instance
     QObject::connect(&server, &QLocalServer::newConnection, &w, [&]() {
-        QLocalSocket *clientSocket = server.nextPendingConnection();
-        if (clientSocket) {
-            clientSocket->waitForReadyRead();
+        while (QLocalSocket *clientSocket = server.nextPendingConnection()) {
+            clientSocket->deleteLater();
             qDebug() << "Socket connection received. Raising window.";
             w.activateWindow();
             w.raise();
             w.show();
         }
     });
-
 
     return application.exec();
 }

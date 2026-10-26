@@ -26,7 +26,7 @@ public:
     }
 
 public:
-    enum class ActionType { None, WarmReset = 0, ColdReset, WaitForCard, WaitForRemoval, Connect, Disconnect, _count_ };
+    enum class ActionType { None = 0, WarmReset, ColdReset, WaitForCard, WaitForRemoval, Connect, Disconnect, _count_ };
 
     ActionType action;
 

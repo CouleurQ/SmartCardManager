@@ -1,14 +1,15 @@
 #include "logview.h"
 
 #include <QHeaderView>
-#include <QMetaObject>
-#include <QMetaEnum>
 #include <QSvgRenderer>
 #include <QPainter>
 #include <QTimer>
 #include <QMenu>
 #include <QGuiApplication>
 #include <QClipboard>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
 
 
 LogView::LogView(QTreeView *view, QObject *parent)
@@ -55,9 +56,8 @@ void LogView::addLogEntry(LogType type, const QString &message, const QString &a
     model->appendRow(items);
 
     // scroll to last entry
-    QModelIndex lastIndex = model->index(model->rowCount() - 1, 0, QModelIndex());
-    QTimer::singleShot(0, this, [this, lastIndex]() {
-        treeView->scrollTo(lastIndex, QAbstractItemView::PositionAtBottom);
+    QTimer::singleShot(0, this, [this]() {
+        treeView->scrollToBottom();
     });
 }
 
@@ -89,9 +89,7 @@ void LogView::showContextMenu(const QPoint &pos)
         clipboard->setText(message);
     });
 
-    contextMenu.addAction("Save Log", this, [this]() {
-        // TODO
-    });
+    contextMenu.addAction("Save Log", this, &LogView::saveLog);
 
     contextMenu.addAction("Clear Log", this, [this]() {
         model->removeRows(0, model->rowCount());
@@ -101,8 +99,36 @@ void LogView::showContextMenu(const QPoint &pos)
 }
 
 
+void LogView::saveLog()
+{
+    QString filePath = QFileDialog::getSaveFileName(treeView, "Save Log", "", "Text Files (*.txt);;All Files (*)");
+    if (filePath.isEmpty())
+        return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        addLogEntry(LogType::Error, QString("%1: %2").arg("Cannot write to file", file.errorString()));
+        return;
+    }
+
+    QTextStream out(&file);
+    for (int row = 0; row < model->rowCount(); ++row) {
+        QStringList columns;
+        for (int col = 0; col < model->columnCount(); ++col) {
+            QStandardItem *item = model->item(row, col);
+            columns << (item ? item->text() : QString());
+        }
+        out << columns.join('\t') << '\n';
+    }
+}
+
+
 QIcon LogView::iconForType(LogType type)
 {
+    auto cached = iconCache.constFind(type);
+    if (cached != iconCache.constEnd())
+        return *cached;
+
     QColor color = Qt::black;
     QString path = "";
 
@@ -130,19 +156,22 @@ QIcon LogView::iconForType(LogType type)
         break;
     }
 
-    return colorizeSvg(path, color, QSize(16, 16));
+    QIcon icon = colorizeSvg(path, color, QSize(16, 16));
+    iconCache.insert(type, icon);
+    return icon;
 }
 
 
 QString LogView::nameForType(LogType type)
 {
-    const QMetaObject *mo = metaObject();
-    if (mo) {
-        int index = mo->indexOfEnumerator("LogType");
-        QMetaEnum metaEnum = mo->enumerator(index);
-        return metaEnum.valueToKey(static_cast<int>(type));
+    switch (type) {
+    case LogType::Info: return "Info";
+    case LogType::Warning: return "Warning";
+    case LogType::Error: return "Error";
+    case LogType::Terminal: return "Terminal";
+    case LogType::CardCmd: return "CardCmd";
+    case LogType::CardRsp: return "CardRsp";
     }
-
     return QString();
 }
 
@@ -155,6 +184,7 @@ QIcon LogView::colorizeSvg(const QString &svgPath, const QColor &color, const QS
 
     QPainter painter(&basePixmap);
     svg.render(&painter);
+    painter.end();
 
     // Tint layer
     QPixmap tintedPixmap(size);

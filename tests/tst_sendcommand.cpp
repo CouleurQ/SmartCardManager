@@ -113,7 +113,6 @@ void TstSendCommand::clearingNameUpdatesItem()
     tab->lineEditCommandName->setText("abc");
     tab->lineEditCommandName->clear();
 
-    QEXPECT_FAIL("", "empty name is not propagated to the list, CODE_REVIEW B-10", Continue);
     QCOMPARE(names(), QStringList({""}));
 }
 
@@ -131,7 +130,6 @@ void TstSendCommand::clearingHexUpdatesItemData()
     tab->hexEditCommandApdu->setData(QByteArray::fromHex("00A40400"));
     tab->hexEditCommandApdu->setData(QByteArray());
 
-    QEXPECT_FAIL("", "emptied hex field keeps stale bytes in the list, CODE_REVIEW B-10", Continue);
     QVERIFY(model->item(0)->data(Qt::UserRole).toByteArray().isEmpty());
 }
 
@@ -275,7 +273,6 @@ void TstSendCommand::loadReportsInvalidJson()
 
     tab->_buttonActionLoad(path);
 
-    QEXPECT_FAIL("", "parse errors are not reported via logString, CODE_REVIEW B-15", Continue);
     QCOMPARE(logs.count(), 1);
 }
 

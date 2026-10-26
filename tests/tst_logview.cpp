@@ -63,7 +63,6 @@ void TstLogView::typeColumnShowsTypeName()
 
     log.addLogEntry(LogType::Warning, QString("careful"));
 
-    QEXPECT_FAIL("", "Type column is empty because LogType is not a registered enum, CODE_REVIEW B-09", Continue);
     QCOMPARE(modelOf(view)->index(0, 0).data().toString(), QString("Warning"));
 }
 

@@ -10,21 +10,34 @@
 #include <QStandardItem>
 #include <QMessageBox>
 #include <QMenu>
+#include <QDateTime>
+#include <QUuid>
+#include <QTextStream>
+#include <QMimeData>
+#include <QDropEvent>
 
 
 
-TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, QWidget *parent)
-    : QWidget{parent}
+TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, QObject *parent)
+    : QObject{parent}
+    , tabWidget(tabWidget)
 {
     app = qApp ? qobject_cast<ScmApplication*>(qApp) : nullptr;
 
-    assert((buttonLoad = tabWidget->findChild<QPushButton *>("sendCommandButtonLoad")) != nullptr);
-    assert((buttonSave = tabWidget->findChild<QPushButton *>("sendCommandButtonSave")) != nullptr);
-    assert((buttonSend = tabWidget->findChild<QPushButton *>("sendCommandButtonSend")) != nullptr);
-    assert((lineEditFilename = tabWidget->findChild<QLineEdit *>("sendCommandLineEditFilename")) != nullptr);
-    assert((listView = tabWidget->findChild<QListView *>("sendCommandListView")) != nullptr);
-    assert((lineEditCommandName = tabWidget->findChild<QLineEdit *>("sendCommandLineEditCommandName")) != nullptr);
-    assert((hexEditCommandApdu = tabWidget->findChild<HexEdit *>("sendCommandHexEditCommandApdu")) != nullptr);
+    buttonLoad = tabWidget->findChild<QPushButton *>("sendCommandButtonLoad");
+    Q_ASSERT(buttonLoad != nullptr);
+    buttonSave = tabWidget->findChild<QPushButton *>("sendCommandButtonSave");
+    Q_ASSERT(buttonSave != nullptr);
+    buttonSend = tabWidget->findChild<QPushButton *>("sendCommandButtonSend");
+    Q_ASSERT(buttonSend != nullptr);
+    lineEditFilename = tabWidget->findChild<QLineEdit *>("sendCommandLineEditFilename");
+    Q_ASSERT(lineEditFilename != nullptr);
+    listView = tabWidget->findChild<QListView *>("sendCommandListView");
+    Q_ASSERT(listView != nullptr);
+    lineEditCommandName = tabWidget->findChild<QLineEdit *>("sendCommandLineEditCommandName");
+    Q_ASSERT(lineEditCommandName != nullptr);
+    hexEditCommandApdu = tabWidget->findChild<HexEdit *>("sendCommandHexEditCommandApdu");
+    Q_ASSERT(hexEditCommandApdu != nullptr);
 
     QStandardItemModel *model = new QStandardItemModel(this);
     listView->setModel(model);
@@ -42,7 +55,9 @@ TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, QWidget *parent
 
     listView->installEventFilter(this);
 
-    setAcceptDrops(true);
+    // drag events are delivered to the viewport of the item view
+    listView->viewport()->setAcceptDrops(true);
+    listView->viewport()->installEventFilter(this);
 }
 
 
@@ -55,7 +70,7 @@ void TabHandlerSendCommand::showContextMenu(const QPoint &pos)
 {
     QModelIndex index = listView->indexAt(pos);
 
-    QMenu menu;
+    QMenu menu(tabWidget);
     if (index.isValid()) {
         // Item right click
         menu.addAction("Delete", this, &TabHandlerSendCommand::buttonActionDelete);
@@ -79,9 +94,6 @@ void TabHandlerSendCommand::showContextMenu(const QPoint &pos)
 
 void TabHandlerSendCommand::updateCommandName(const QString &newText)
 {
-    if (newText.length() == 0)
-        return;
-
     QModelIndex currentIndex = listView->currentIndex();
 
     if (currentIndex.isValid()) {
@@ -95,8 +107,6 @@ void TabHandlerSendCommand::updateCommandName(const QString &newText)
 void TabHandlerSendCommand::updateCommandApdu()
 {
     QString newText = hexEditCommandApdu->toPlainText();
-    if (newText.length() == 0)
-        return;
 
     QModelIndex currentIndex = listView->currentIndex();
 
@@ -264,9 +274,10 @@ void TabHandlerSendCommand::_buttonActionLoad(const QString &filePath)
 
 
     // Read and parse the JSON data into a QJsonDocument
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
     if (doc.isNull()) {
-        qWarning() << "Failed to parse JSON";
+        emit logString(LogType::Error, QString("%1: %2").arg("Failed to parse command file", parseError.errorString()));
         return;
     }
 
@@ -300,7 +311,7 @@ void TabHandlerSendCommand::_buttonActionLoad(const QString &filePath)
         lineEditFilename->setText(filePath);
         lineEditCommandName->setText("");
         hexEditCommandApdu->setText("");
-    } catch (const std::exception e) {
+    } catch (const std::exception &e) {
         emit logString(LogType::Error, e.what());
     }
 }
@@ -308,7 +319,7 @@ void TabHandlerSendCommand::_buttonActionLoad(const QString &filePath)
 
 void TabHandlerSendCommand::buttonActionSave()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, "Save Command File", "", "JSON Files (*.json);;All Files (*)");
+    QString filePath = QFileDialog::getSaveFileName(tabWidget, "Save Command File", "", "JSON Files (*.json);;All Files (*)");
 
     if (filePath.isEmpty())
         return;
@@ -357,8 +368,9 @@ void TabHandlerSendCommand::buttonActionSave()
 
         file.close();
 
-        QMessageBox::information(this, "Success", "File saved successfully.");
-    } catch (std::exception e) {
+        lineEditFilename->setText(filePath);
+        emit logString(LogType::Info, QString("%1: %2").arg("Command file saved", filePath));
+    } catch (const std::exception &e) {
         emit logString(LogType::Error, e.what());
     }
 }
@@ -375,6 +387,8 @@ void TabHandlerSendCommand::buttonActionSend()
     QByteArray response = app->pcsc->send(app->cardReader, cmd);
     if (response.length() >= 2)
         emit logBytes(LogType::CardRsp, response);
+    else
+        emit logString(LogType::Error, "No response from card");
 
     emit update();
 }
@@ -382,9 +396,9 @@ void TabHandlerSendCommand::buttonActionSend()
 
 bool TabHandlerSendCommand::eventFilter(QObject *obj, QEvent *event)
 {
-    if (obj == listView) {
-        if (event->type() == QEvent::DragEnter) {
-            QDragEnterEvent *dragEvent = static_cast<QDragEnterEvent *>(event);
+    if (obj == listView || obj == listView->viewport()) {
+        if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
+            QDropEvent *dragEvent = static_cast<QDropEvent *>(event);
             if (dragEvent->mimeData()->hasUrls()) {
                 dragEvent->acceptProposedAction();
                 return true;
@@ -405,5 +419,5 @@ bool TabHandlerSendCommand::eventFilter(QObject *obj, QEvent *event)
         }
     }
 
-    return QWidget::eventFilter(obj, event);
+    return QObject::eventFilter(obj, event);
 }

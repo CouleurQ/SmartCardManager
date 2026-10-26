@@ -12,19 +12,18 @@
 #include "scmapplication.h"
 
 
-class TabHandlerSendCommand : public QWidget
+class TabHandlerSendCommand : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit TabHandlerSendCommand(QWidget *tabWidget, QWidget *parent = nullptr);
+    explicit TabHandlerSendCommand(QWidget *tabWidget, QObject *parent = nullptr);
     ~TabHandlerSendCommand();
 
 protected:
-    bool eventFilter(QObject *obj, QEvent *event);
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 private:
-    void onItemSelectionChanged(const QModelIndex &current, const QModelIndex &previous);
     void onItemSelected(const QModelIndex &current, const QModelIndex &previous);
     void onItemClicked(const QModelIndex &index);
     void onItemDoubleClicked(const QModelIndex &index);
@@ -46,6 +45,7 @@ private:
 
 private:
     ScmApplication *app;
+    QWidget *tabWidget;
 
     QPushButton *buttonLoad;
     QPushButton *buttonSave;
