@@ -58,7 +58,7 @@ QByteArray CommandApdu::buildApdu() const
 }
 
 
-bool CommandApdu::execute(CardSession &session, QByteArray *response) const
+bool CommandApdu::execute(CardSession &session, QByteArray *response, const std::atomic<bool> *cancel) const
 {
     const QByteArray answer = session.transmit(buildApdu());
     if (response)

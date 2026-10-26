@@ -29,7 +29,7 @@ void CommandSendBytes::fromJson(const QJsonObject &object)
 }
 
 
-bool CommandSendBytes::execute(CardSession &session, QByteArray *response) const
+bool CommandSendBytes::execute(CardSession &session, QByteArray *response, const std::atomic<bool> *cancel) const
 {
     const QByteArray answer = session.transmit(commandData);
     if (response)

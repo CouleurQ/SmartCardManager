@@ -13,12 +13,13 @@ public:
     QSharedPointer<Command> clone() const override;
     JsonFields toJson() const override;
     void fromJson(const QJsonObject &object) override;
-    bool execute(CardSession &session, QByteArray *response = nullptr) const override;
+    bool execute(CardSession &session, QByteArray *response = nullptr, const std::atomic<bool> *cancel = nullptr) const override;
 
 public:
     enum class ActionType { None = 0, WarmReset, ColdReset, WaitForCard, WaitForRemoval, Connect, Disconnect, _count_ };
 
     ActionType action = ActionType::None;
+    static constexpr int waitTimeoutMs = 30000;   // WaitForCard / WaitForRemoval give up after this
 
     static QString getActionString(const ActionType value) {
         switch (value) {

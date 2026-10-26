@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QWidget>
 #include <QStackedWidget>
+#include <QCheckBox>
 #include <QPushButton>
 #include <QLineEdit>
 #include <QListWidget>
@@ -13,6 +14,10 @@
 #include "commands/commandview.h"
 #include "commands/command.h"
 #include "commands/runscriptmodel.h"
+#include "commands/scriptrunner.h"
+
+class CardSession;
+class ListReorderHelper;
 
 
 class TabHandlerRunScript : public QObject
@@ -20,7 +25,7 @@ class TabHandlerRunScript : public QObject
     Q_OBJECT
 
 public:
-    explicit TabHandlerRunScript(QWidget *tabWidget, QObject *parent = nullptr);
+    TabHandlerRunScript(QWidget *tabWidget, CardSession *session, QObject *parent = nullptr);
     ~TabHandlerRunScript();
 
 private:
@@ -37,16 +42,32 @@ private:
     void buttonActionDuplicate();
     void buttonActionUp();
     void buttonActionDown();
+    void buttonActionRun();
+    void buttonActionStep();
+    void buttonActionStop();
+    void startRun(const QList<QSharedPointer<Command>> &commands, int firstRow);
+    void onCommandStarted(int row);
+    void onCommandFinished(int row, bool ok);
+    void onRunFinished(bool success, int executed);
+    void updateRunState();
 
 private:
     QWidget *tabWidget;
+    CardSession *session;
+    ScriptRunner *runner;
+    int stepTarget = -1;
 
     RunScriptModel *model;
     QListView *listView;
+    ListReorderHelper *reorder;
     QStackedWidget *stackedWidget;
     QPushButton *buttonAdd;
     QPushButton *buttonLoad;
     QPushButton *buttonSave;
+    QPushButton *buttonRun;
+    QPushButton *buttonStep;
+    QPushButton *buttonStop;
+    QCheckBox *checkStopOnError;
     QLineEdit *lineEditFilename;
 
 private slots:

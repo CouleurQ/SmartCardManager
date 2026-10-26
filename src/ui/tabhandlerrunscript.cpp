@@ -1,4 +1,5 @@
 #include "tabhandlerrunscript.h"
+#include "card/cardsession.h"
 #include "io/scriptfile.h"
 #include "commands/commandfactory.h"
 #include "commands/commandview.h"
@@ -22,6 +23,8 @@
 #include <QUuid>
 #include <QTextStream>
 #include <QItemSelectionModel>
+#include "listreorderhelper.h"
+#include <algorithm>
 
 
 
@@ -40,15 +43,26 @@ CommandView *createView(const QSharedPointer<Command> &command)
 }
 
 
-TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QObject *parent)
+TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, CardSession *session, QObject *parent)
     : QObject{parent}
     , tabWidget(tabWidget)
+    , session(session)
 {
+    Q_ASSERT(session != nullptr);
+
     // load the widgets
     buttonLoad = tabWidget->findChild<QPushButton *>("runScriptButtonLoad");
     Q_ASSERT(buttonLoad != nullptr);
     buttonSave = tabWidget->findChild<QPushButton *>("runScriptButtonSave");
     Q_ASSERT(buttonSave != nullptr);
+    buttonRun = tabWidget->findChild<QPushButton *>("runScriptButtonRun");
+    Q_ASSERT(buttonRun != nullptr);
+    buttonStep = tabWidget->findChild<QPushButton *>("runScriptButtonStep");
+    Q_ASSERT(buttonStep != nullptr);
+    checkStopOnError = tabWidget->findChild<QCheckBox *>("runScriptCheckStopOnError");
+    Q_ASSERT(checkStopOnError != nullptr);
+    buttonStop = tabWidget->findChild<QPushButton *>("runScriptButtonStop");
+    Q_ASSERT(buttonStop != nullptr);
     stackedWidget = tabWidget->findChild<QStackedWidget *>("runScriptStackedWidget");
     Q_ASSERT(stackedWidget != nullptr);
     buttonAdd = tabWidget->findChild<QPushButton *>("runScriptButtonAdd");
@@ -72,8 +86,26 @@ TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QObject *parent)
     model = new RunScriptModel(this);
     listView->setModel(model);
     listView->setContextMenuPolicy(Qt::CustomContextMenu);
+    listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    reorder = new ListReorderHelper(listView, [this](const QList<int> &rows, int target) {
+        if (!runner->isRunning())
+            model->moveToRow(rows, target);
+    });
+
+    runner = new ScriptRunner(session, this);
 
     // Connect the actions to slots
+    connect(buttonRun, &QPushButton::clicked, this, &TabHandlerRunScript::buttonActionRun);
+    connect(buttonStep, &QPushButton::clicked, this, &TabHandlerRunScript::buttonActionStep);
+    connect(buttonStop, &QPushButton::clicked, this, &TabHandlerRunScript::buttonActionStop);
+    connect(runner, &ScriptRunner::commandStarted, this, &TabHandlerRunScript::onCommandStarted);
+    connect(runner, &ScriptRunner::commandFinished, this, &TabHandlerRunScript::onCommandFinished);
+    connect(runner, &ScriptRunner::finished, this, &TabHandlerRunScript::onRunFinished);
+    connect(runner, &ScriptRunner::logBytes, this, &TabHandlerRunScript::logBytes);
+    connect(runner, &ScriptRunner::logString, this, &TabHandlerRunScript::logString);
+    connect(model, &QAbstractItemModel::rowsInserted, this, &TabHandlerRunScript::updateRunState);
+    connect(model, &QAbstractItemModel::rowsRemoved, this, &TabHandlerRunScript::updateRunState);
+    connect(model, &QAbstractItemModel::modelReset, this, &TabHandlerRunScript::updateRunState);
     connect(buttonLoad, &QPushButton::clicked, this, &TabHandlerRunScript::buttonActionLoad);
     connect(buttonSave, &QPushButton::clicked, this, &TabHandlerRunScript::buttonActionSave);
     connect(action1, &QAction::triggered, this, &TabHandlerRunScript::buttonActionAdd);
@@ -81,16 +113,22 @@ TabHandlerRunScript::TabHandlerRunScript(QWidget *tabWidget, QObject *parent)
     connect(action3, &QAction::triggered, this, &TabHandlerRunScript::buttonActionAdd);
     connect(listView, &QListView::customContextMenuRequested, this, &TabHandlerRunScript::showContextMenu);
     connect(listView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TabHandlerRunScript::onItemSelected);
+
+    updateRunState();
 }
 
 
 TabHandlerRunScript::~TabHandlerRunScript()
 {
+    runner->stop();
 }
 
 
 void TabHandlerRunScript::showContextMenu(const QPoint &pos)
 {
+    if (runner->isRunning())
+        return;
+
     QModelIndex index = listView->indexAt(pos);
 
     QMenu menu(tabWidget);
@@ -304,4 +342,100 @@ void TabHandlerRunScript::buttonActionSave()
 
     lineEditFilename->setText(filePath);
     emit logString(LogType::Info, QString("%1: %2").arg("Script saved", filePath));
+}
+
+
+void TabHandlerRunScript::buttonActionRun()
+{
+    if (model->rowCount() == 0)
+        return;
+
+    model->clearStatus();
+    stepTarget = -1;
+
+    // two or more selected rows: run only those, otherwise the whole script
+    QList<int> rows;
+    for (const QModelIndex &index : listView->selectionModel()->selectedRows())
+        rows.append(index.row());
+    std::sort(rows.begin(), rows.end());
+    if (rows.size() < 2 || rows.size() == model->rowCount()) {
+        startRun(model->commands(), 0);
+        return;
+    }
+
+    QList<QSharedPointer<Command>> commands;
+    for (int row : rows)
+        commands.append(model->item(row));
+    if (runner->start(commands, rows, checkStopOnError->isChecked()))
+        updateRunState();
+}
+
+
+void TabHandlerRunScript::buttonActionStep()
+{
+    const int row = listView->currentIndex().isValid() ? listView->currentIndex().row() : 0;
+    const QSharedPointer<Command> command = model->item(row);
+    if (!command)
+        return;
+
+    model->setStatus(row, RunScriptModel::Status::None);
+    stepTarget = row;
+    startRun({command}, row);
+}
+
+
+void TabHandlerRunScript::buttonActionStop()
+{
+    runner->stop();
+}
+
+
+void TabHandlerRunScript::startRun(const QList<QSharedPointer<Command>> &commands, int firstRow)
+{
+    if (runner->start(commands, firstRow, checkStopOnError->isChecked()))
+        updateRunState();
+}
+
+
+void TabHandlerRunScript::onCommandStarted(int row)
+{
+    model->setStatus(row, RunScriptModel::Status::Running);
+    listView->scrollTo(model->index(row, 0));
+}
+
+
+void TabHandlerRunScript::onCommandFinished(int row, bool ok)
+{
+    model->setStatus(row, ok ? RunScriptModel::Status::Passed : RunScriptModel::Status::Failed);
+}
+
+
+void TabHandlerRunScript::onRunFinished(bool success, int executed)
+{
+    Q_UNUSED(executed)
+    updateRunState();
+
+    // stepping moves on to the next command
+    if (stepTarget >= 0 && success && stepTarget + 1 < model->rowCount())
+        listView->setCurrentIndex(model->index(stepTarget + 1, 0));
+    stepTarget = -1;
+
+    emit update();
+}
+
+
+void TabHandlerRunScript::updateRunState()
+{
+    const bool running = runner->isRunning();
+    const bool hasCommands = model->rowCount() > 0;
+
+    listView->setEnabled(!running);
+    stackedWidget->setEnabled(!running);
+    buttonAdd->setEnabled(!running);
+    buttonLoad->setEnabled(!running);
+    buttonSave->setEnabled(!running);
+    buttonRun->setEnabled(!running && hasCommands);
+    buttonStep->setEnabled(!running && hasCommands);
+    buttonStop->setEnabled(running);
+    checkStopOnError->setEnabled(!running);
 }

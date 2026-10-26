@@ -30,23 +30,26 @@ void CommandTerminal::fromJson(const QJsonObject &object)
 }
 
 
-bool CommandTerminal::execute(CardSession &session, QByteArray *response) const
+bool CommandTerminal::execute(CardSession &session, QByteArray *response, const std::atomic<bool> *cancel) const
 {
     if (response)
         response->clear();
 
     switch (action) {
     case ActionType::WarmReset:
+        return session.reset(false);
     case ActionType::ColdReset:
-        return session.reset();
+        return session.reset(true);
     case ActionType::Connect:
         return session.connectCard();
     case ActionType::Disconnect:
         return session.disconnectCard();
     case ActionType::WaitForCard:
+        return session.waitForPresence(true, waitTimeoutMs, cancel);
     case ActionType::WaitForRemoval:
+        return session.waitForPresence(false, waitTimeoutMs, cancel);
     case ActionType::None:
     default:
-        return false;   // not supported by the transport yet
+        return false;
     }
 }

@@ -9,6 +9,8 @@
 #include <QSharedPointer>
 #include <QString>
 
+#include <atomic>
+
 class CardSession;
 
 
@@ -30,15 +32,18 @@ public:
     // serialised fields without name and type
     virtual JsonFields toJson() const = 0;
     virtual void fromJson(const QJsonObject &object) = 0;
-    // runs the command on the card; the card's answer is stored in *response if given
-    virtual bool execute(CardSession &session, QByteArray *response = nullptr) const = 0;
+    // Runs the command on the card (blocking, not for the GUI thread); the card's answer is stored
+    // in *response if given. Long waits give up when *cancel becomes true.
+    virtual bool execute(CardSession &session, QByteArray *response = nullptr, const std::atomic<bool> *cancel = nullptr) const = 0;
+    // the bytes sent to the card, empty for commands that do not transmit
+    virtual QByteArray requestBytes() const { return QByteArray(); }
 
 public:
     QString commandName;
     QByteArray expectedResponse;
 
 protected:
-    // true if there is no expected response or the response matches it
+    // true if there is no expected response or the response matches it (two bytes: status word only) (two bytes: status word only)
     bool matchesExpected(const QByteArray &response) const;
 };
 

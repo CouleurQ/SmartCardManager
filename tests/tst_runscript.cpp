@@ -1,7 +1,10 @@
 #include "testregistry.h"
 #include "testutil.h"
+#include "mocktransport.h"
+#include "card/cardsession.h"
 #include "privateaccess.h"
 #include "ui_mainwindow.h"
+#include "ui/listreorderhelper.h"
 #include "commands/commandsendbytes.h"
 #include "commands/commandapdu.h"
 #include "commands/commandterminal.h"
@@ -20,6 +23,8 @@ class TstRunScript : public QObject
 private:
     QMainWindow *window = nullptr;
     Ui::MainWindow *ui = nullptr;
+    MockTransport *transport = nullptr;
+    CardSession *session = nullptr;
     TabHandlerRunScript *tab = nullptr;
     RunScriptModel *model = nullptr;
 
@@ -59,7 +64,38 @@ private slots:
     void saveWritesVersionAndItems();
     void saveLoadRoundTripKeepsApduData();
     void saveEscapesSpecialCharactersInNames();
+
+    void runExecutesAllCommandsInOrder();
+    void runMarksPassedAndFailedAndStopsAtFirstFailure();
+    void runLogsCommandsAndResponses();
+    void runDisablesEditingWhileRunning();
+    void stopInterruptsAWaitingCommand();
+    void stepRunsSelectedCommandAndAdvances();
+    void runIsDisabledWithoutCommands();
+    void runDoesNotBlockTheGui();
+    void terminalCommandsRunInScript();
+    void runContinuesAfterFailureWithoutStopOnError();
+    void runExecutesOnlySelectedRows();
+    void runWithOneOrAllSelectedExecutesEverything();
+    void moveRowsReordersCommands();
+    void dropMovesTheSelectedItems();
 };
+
+static QSharedPointer<CommandSendBytes> sendBytes(const QString &name, const QByteArray &data, const QByteArray &expected = QByteArray())
+{
+    auto cmd = QSharedPointer<CommandSendBytes>::create();
+    cmd->commandName = name;
+    cmd->commandData = data;
+    cmd->expectedResponse = expected;
+    return cmd;
+}
+
+static QSharedPointer<CommandTerminal> terminal(CommandTerminal::ActionType action)
+{
+    auto cmd = QSharedPointer<CommandTerminal>::create();
+    cmd->action = action;
+    return cmd;
+}
 
 static QString writeFile(const QTemporaryDir &dir, const QString &name, const QByteArray &content)
 {
@@ -76,7 +112,10 @@ void TstRunScript::init()
     window = new QMainWindow;
     ui = new Ui::MainWindow;
     ui->setupUi(window);
-    tab = new TabHandlerRunScript(ui->tabRunScript);
+    transport = new MockTransport;
+    session = new CardSession(transport);
+    session->setReader("Mock Reader 0");
+    tab = new TabHandlerRunScript(ui->tabRunScript, session);
     model = qobject_cast<RunScriptModel *>(tab->listView->model());
     window->show();
 }
@@ -84,8 +123,11 @@ void TstRunScript::init()
 void TstRunScript::cleanup()
 {
     delete tab;
+    delete session;
+    delete transport;
     delete window;
     delete ui;
+    session = nullptr; transport = nullptr;
     tab = nullptr; window = nullptr; ui = nullptr; model = nullptr;
 }
 
@@ -257,26 +299,28 @@ void TstRunScript::loadDefaultScriptFile()
     tab->_buttonActionLoad(path);
 
     QCOMPARE(logs.count(), 0);
-    QCOMPARE(model->rowCount(), 3);
-    QCOMPARE(names(), QStringList({"Select ISD", "Select ISD", "Get CPLC Data"}));
-    QCOMPARE(model->commandType(0), QString("SendAPDU"));
-    QCOMPARE(model->commandType(1), QString("SendBytes"));
-    QCOMPARE(model->commandType(2), QString("SendBytes"));
+    QVERIFY(model->rowCount() > 10);
+    QCOMPARE(names().first(), QString("Connect"));
+    QCOMPARE(model->commandType(0), QString("TerminalCmd"));
+    QCOMPARE(qSharedPointerDynamicCast<CommandTerminal>(model->item(0))->action, CommandTerminal::ActionType::Connect);
 
-    auto apdu = qSharedPointerDynamicCast<CommandApdu>(model->item(0));
+    // the file covers every command type
+    QSet<QString> types;
+    for (int i = 0; i < model->rowCount(); ++i)
+        types.insert(model->commandType(i));
+    QCOMPARE(types, QSet<QString>({"TerminalCmd", "SendAPDU", "SendBytes"}));
+
+    auto apdu = qSharedPointerDynamicCast<CommandApdu>(model->item(2));
+    QCOMPARE(names().at(2), QString("Select ISD"));
     QCOMPARE(apdu->cla, QByteArray::fromHex("00"));
     QCOMPARE(apdu->ins, QByteArray::fromHex("A4"));
     QCOMPARE(apdu->p1, QByteArray::fromHex("04"));
     QCOMPARE(apdu->p2, QByteArray::fromHex("00"));
     QCOMPARE(apdu->expectedResponse, QByteArray::fromHex("9000"));
 
-    auto raw = qSharedPointerDynamicCast<CommandSendBytes>(model->item(1));
-    QCOMPARE(raw->commandData, QByteArray::fromHex("00A4040000"));
-    QCOMPARE(raw->expectedResponse, QByteArray::fromHex("9000"));
-
     QCOMPARE(tab->lineEditFilename->text(), path);
     QCOMPARE(tab->listView->currentIndex().row(), 0);   // first item selected
-    QVERIFY(currentView<CommandViewApdu>());
+    QVERIFY(currentView<CommandViewTerminal>());
 }
 
 void TstRunScript::loadRejectsWrongVersion()
@@ -399,6 +443,283 @@ void TstRunScript::saveEscapesSpecialCharactersInNames()
     QJsonParseError err;
     QJsonDocument::fromJson(f.readAll(), &err);
     QCOMPARE(err.error, QJsonParseError::NoError);
+}
+
+void TstRunScript::runExecutesAllCommandsInOrder()
+{
+    session->connectCard();
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01")));
+    model->addCommand(sendBytes("b", QByteArray::fromHex("02")));
+    model->addCommand(sendBytes("c", QByteArray::fromHex("03")));
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QVERIFY(!tab->buttonRun->isEnabled());
+    QVERIFY(tab->buttonStop->isEnabled());
+
+    QTRY_COMPARE(finished.count(), 1);
+    QVERIFY(finished.first().at(0).toBool());
+    QCOMPARE(finished.first().at(1).toInt(), 3);
+    QCOMPARE(transport->sent, (QList<QByteArray>{QByteArray::fromHex("01"), QByteArray::fromHex("02"), QByteArray::fromHex("03")}));
+    for (int i = 0; i < 3; ++i)
+        QCOMPARE(model->status(i), RunScriptModel::Status::Passed);
+    QVERIFY(tab->buttonRun->isEnabled());
+    QVERIFY(!tab->buttonStop->isEnabled());
+}
+
+void TstRunScript::runContinuesAfterFailureWithoutStopOnError()
+{
+    session->connectCard();
+    transport->answers.insert(QByteArray::fromHex("02"), QByteArray::fromHex("6A82"));
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01"), QByteArray::fromHex("9000")));
+    model->addCommand(sendBytes("b", QByteArray::fromHex("02"), QByteArray::fromHex("9000")));
+    model->addCommand(sendBytes("c", QByteArray::fromHex("03"), QByteArray::fromHex("9000")));
+
+    QVERIFY(tab->checkStopOnError->isChecked());   // default
+    tab->checkStopOnError->setChecked(false);
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 1);
+
+    QVERIFY(!finished.first().at(0).toBool());      // a command failed
+    QCOMPARE(finished.first().at(1).toInt(), 3);    // but all were executed
+    QCOMPARE(model->status(0), RunScriptModel::Status::Passed);
+    QCOMPARE(model->status(1), RunScriptModel::Status::Failed);
+    QCOMPARE(model->status(2), RunScriptModel::Status::Passed);
+    QCOMPARE(transport->sent.size(), 3);
+}
+
+void TstRunScript::runExecutesOnlySelectedRows()
+{
+    session->connectCard();
+    for (int i = 1; i <= 4; ++i)
+        model->addCommand(sendBytes(QString::number(i), QByteArray(1, char(i))));
+
+    auto *sel = tab->listView->selectionModel();
+    sel->clearSelection();
+    sel->select(model->index(1, 0), QItemSelectionModel::Select);
+    sel->select(model->index(3, 0), QItemSelectionModel::Select);
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 1);
+
+    QCOMPARE(transport->sent.size(), 2);
+    QCOMPARE(transport->sent.at(0), QByteArray(1, char(2)));
+    QCOMPARE(transport->sent.at(1), QByteArray(1, char(4)));
+    QCOMPARE(model->status(0), RunScriptModel::Status::None);
+    QCOMPARE(model->status(1), RunScriptModel::Status::Passed);
+    QCOMPARE(model->status(2), RunScriptModel::Status::None);
+    QCOMPARE(model->status(3), RunScriptModel::Status::Passed);
+}
+
+void TstRunScript::runWithOneOrAllSelectedExecutesEverything()
+{
+    session->connectCard();
+    for (int i = 1; i <= 3; ++i)
+        model->addCommand(sendBytes(QString::number(i), QByteArray(1, char(i))));
+    auto *sel = tab->listView->selectionModel();
+
+    sel->clearSelection();                      // nothing
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 1);
+    QCOMPARE(transport->sent.size(), 3);
+
+    transport->sent.clear();
+    sel->select(model->index(1, 0), QItemSelectionModel::ClearAndSelect);   // one (just the current row)
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(transport->sent.size(), 3);
+
+    transport->sent.clear();
+    tab->listView->selectAll();                 // all
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 3);
+    QCOMPARE(transport->sent.size(), 3);
+}
+
+void TstRunScript::moveRowsReordersCommands()
+{
+    for (int i = 0; i < 5; ++i)
+        model->addCommand(sendBytes(QString::number(i), QByteArray()));
+    auto names = [&] { QStringList l; for (auto c : model->commands()) l << c->commandName; return l.join(','); };
+
+    model->moveToRow({0}, 3);
+    QCOMPARE(names(), QString("1,2,0,3,4"));
+    model->moveToRow({2}, 0);
+    QCOMPARE(names(), QString("0,1,2,3,4"));
+    model->moveToRow({1, 3}, 5);
+    QCOMPARE(names(), QString("0,2,4,1,3"));
+    model->moveToRow({3, 4}, 0);
+    QCOMPARE(names(), QString("1,3,0,2,4"));
+}
+
+void TstRunScript::dropMovesTheSelectedItems()
+{
+    for (int i = 0; i < 4; ++i)
+        model->addCommand(sendBytes(QString::number(i), QByteArray()));
+    auto names = [&] { QStringList l; for (auto c : model->commands()) l << c->commandName; return l.join(','); };
+    window->resize(900, 700);
+    ui->tabWidget->setCurrentWidget(ui->tabRunScript);
+    QVERIFY(QTest::qWaitForWindowExposed(window));
+    auto belowRow = [&](int row) { return tab->listView->visualRect(model->index(row, 0)).bottomLeft() + QPoint(5, -2); };
+
+    tab->listView->setCurrentIndex(model->index(0, 0));
+    QVERIFY(tab->reorder->drop(belowRow(2)));                   // item 0 behind item 2
+    QCOMPARE(names(), QString("1,2,0,3"));
+    QCOMPARE(tab->listView->currentIndex().row(), 2);           // selection follows the item
+
+    QVERIFY(!tab->reorder->drop(belowRow(2)));                  // onto itself: nothing
+
+    tab->listView->selectionModel()->select(model->index(0, 0), QItemSelectionModel::Select);
+    QVERIFY(tab->reorder->drop(belowRow(3)));                   // items 1 and 0 to the end
+    QCOMPARE(names(), QString("2,3,1,0"));
+}
+
+void TstRunScript::runMarksPassedAndFailedAndStopsAtFirstFailure()
+{
+    session->connectCard();
+    transport->answers.insert(QByteArray::fromHex("02"), QByteArray::fromHex("6A82"));
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01"), QByteArray::fromHex("9000")));
+    model->addCommand(sendBytes("b", QByteArray::fromHex("02"), QByteArray::fromHex("9000")));
+    model->addCommand(sendBytes("c", QByteArray::fromHex("03")));
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 1);
+
+    QVERIFY(!finished.first().at(0).toBool());
+    QCOMPARE(finished.first().at(1).toInt(), 2);
+    QCOMPARE(model->status(0), RunScriptModel::Status::Passed);
+    QCOMPARE(model->status(1), RunScriptModel::Status::Failed);
+    QCOMPARE(model->status(2), RunScriptModel::Status::None);
+    QCOMPARE(transport->sent.size(), 2);
+}
+
+void TstRunScript::runLogsCommandsAndResponses()
+{
+    session->connectCard();
+    model->addCommand(sendBytes("a", QByteArray::fromHex("0102")));
+    QList<QPair<LogType, QByteArray>> bytes;
+    QStringList strings;
+    connect(tab, &TabHandlerRunScript::logBytes, this, [&](LogType t, const QByteArray &b) { bytes.append({t, b}); });
+    connect(tab, &TabHandlerRunScript::logString, this, [&](LogType, const QString &t) { strings << t; });
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 1);
+
+    QCOMPARE(bytes.size(), 2);
+    QCOMPARE(bytes[0], qMakePair(LogType::CardCmd, QByteArray::fromHex("0102")));
+    QCOMPARE(bytes[1], qMakePair(LogType::CardRsp, QByteArray::fromHex("9000")));
+    QVERIFY(!strings.isEmpty());
+}
+
+void TstRunScript::runDisablesEditingWhileRunning()
+{
+    session->connectCard();
+    transport->transmitDelayMs = 150;
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01")));
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QVERIFY(!tab->listView->isEnabled());
+    QVERIFY(!tab->buttonAdd->isEnabled());
+    QVERIFY(!tab->buttonLoad->isEnabled());
+    QVERIFY(!tab->buttonSave->isEnabled());
+
+    QTRY_COMPARE(finished.count(), 1);
+    QVERIFY(tab->listView->isEnabled());
+    QVERIFY(tab->buttonAdd->isEnabled());
+}
+
+void TstRunScript::stopInterruptsAWaitingCommand()
+{
+    session->connectCard();
+    transport->cardInserted = true;
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01")));
+    model->addCommand(terminal(CommandTerminal::ActionType::WaitForRemoval));
+    model->addCommand(sendBytes("c", QByteArray::fromHex("03")));
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(model->status(1), RunScriptModel::Status::Running);
+
+    tab->buttonStop->click();
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 3000);
+    QVERIFY(!finished.first().at(0).toBool());
+    QCOMPARE(model->status(1), RunScriptModel::Status::Failed);
+    QCOMPARE(model->status(2), RunScriptModel::Status::None);
+    QCOMPARE(transport->sent.size(), 1);
+}
+
+void TstRunScript::stepRunsSelectedCommandAndAdvances()
+{
+    session->connectCard();
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01")));
+    model->addCommand(sendBytes("b", QByteArray::fromHex("02")));
+    select(0);
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonStep->click();
+    QTRY_COMPARE(finished.count(), 1);
+
+    QCOMPARE(transport->sent, (QList<QByteArray>{QByteArray::fromHex("01")}));
+    QCOMPARE(model->status(0), RunScriptModel::Status::Passed);
+    QCOMPARE(model->status(1), RunScriptModel::Status::None);
+    QCOMPARE(tab->listView->currentIndex().row(), 1);
+
+    tab->buttonStep->click();
+    QTRY_COMPARE(finished.count(), 2);
+    QCOMPARE(transport->sent.size(), 2);
+    QCOMPARE(model->status(1), RunScriptModel::Status::Passed);
+}
+
+void TstRunScript::runIsDisabledWithoutCommands()
+{
+    QVERIFY(!tab->buttonRun->isEnabled());
+    QVERIFY(!tab->buttonStep->isEnabled());
+    QVERIFY(!tab->buttonStop->isEnabled());
+
+    addViaMenu(0);
+    QVERIFY(tab->buttonRun->isEnabled());
+    QVERIFY(tab->buttonStep->isEnabled());
+
+    tab->buttonActionClear();
+    QVERIFY(!tab->buttonRun->isEnabled());
+}
+
+void TstRunScript::runDoesNotBlockTheGui()
+{
+    session->connectCard();
+    transport->transmitDelayMs = 200;
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01")));
+
+    QElapsedTimer timer;
+    timer.start();
+    tab->buttonRun->click();
+    QVERIFY2(timer.elapsed() < 150, "starting a run must not wait for the card");
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    QTRY_COMPARE(finished.count(), 1);
+}
+
+void TstRunScript::terminalCommandsRunInScript()
+{
+    model->addCommand(terminal(CommandTerminal::ActionType::WaitForCard));
+    model->addCommand(terminal(CommandTerminal::ActionType::Connect));
+    model->addCommand(sendBytes("a", QByteArray::fromHex("01"), QByteArray::fromHex("9000")));
+    model->addCommand(terminal(CommandTerminal::ActionType::WarmReset));
+    model->addCommand(terminal(CommandTerminal::ActionType::ColdReset));
+    model->addCommand(terminal(CommandTerminal::ActionType::Disconnect));
+
+    QSignalSpy finished(tab->runner, &ScriptRunner::finished);
+    tab->buttonRun->click();
+    QTRY_COMPARE(finished.count(), 1);
+
+    QVERIFY(finished.first().at(0).toBool());
+    QCOMPARE(transport->resetCount, 1);
+    QCOMPARE(transport->coldResetCount, 1);
+    QVERIFY(!session->isConnected());
 }
 
 static TestRegistrar<TstRunScript> registrar;

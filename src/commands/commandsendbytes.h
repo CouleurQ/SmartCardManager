@@ -13,7 +13,8 @@ public:
     QSharedPointer<Command> clone() const override;
     JsonFields toJson() const override;
     void fromJson(const QJsonObject &object) override;
-    bool execute(CardSession &session, QByteArray *response = nullptr) const override;
+    bool execute(CardSession &session, QByteArray *response = nullptr, const std::atomic<bool> *cancel = nullptr) const override;
+    QByteArray requestBytes() const override { return commandData; }
 
 public:
     QByteArray commandData;
