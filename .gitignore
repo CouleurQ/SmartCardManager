@@ -7,3 +7,4 @@ res/commandListScheme.json
 res/defaultCommandList.json
 res/defaultScriptFile.json
 res/scriptFileScheme.json
+.vscode/

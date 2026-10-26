@@ -94,7 +94,9 @@ do_test() {
     configure_and_make "$ROOT/tests" "tests.pro" "$ROOT/build/tests" "debug"
     info "running tests"
     cd "$ROOT/build/tests"
-    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" ./tst_smartcardmanager "${EXTRA_ARGS[@]}"
+    # the offscreen platform plugin warns about propagateSizeHints() for every window; harmless, so filtered out
+    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" ./tst_smartcardmanager "${EXTRA_ARGS[@]}" \
+        2>&1 | sed -u '/This plugin does not support propagateSizeHints()/d'
 }
 
 do_run() {

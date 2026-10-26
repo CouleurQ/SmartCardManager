@@ -3,6 +3,7 @@
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QTimer>
 #include <QPointer>
@@ -39,8 +40,11 @@ private:
         if (!modal)
             return;
         if (auto *fd = qobject_cast<QFileDialog *>(modal)) {
-            if (!m_path.isEmpty())
+            if (!m_path.isEmpty()) {
                 fd->selectFile(m_path);
+                if (auto *edit = fd->findChild<QLineEdit *>("fileNameEdit"))
+                    edit->setText(m_path);
+            }
             ++fileDialogsHandled;
             static_cast<QDialog *>(fd)->accept();   // QFileDialog::accept() is protected
         } else if (auto *mb = qobject_cast<QMessageBox *>(modal)) {

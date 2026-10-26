@@ -44,6 +44,7 @@ src/
   card/
     icardtransport.h       ICardTransport: readers/connect/disconnect/reset/transmit (+ log signal)
     pcsctransport.*        PcscTransport: pcsc-lite implementation
+    atrparser.*            AtrParser::parse: ISO 7816-3 ATR decoding (interface/historical bytes, TCK)
     cardsession.*          CardSession: selected reader + connection state, serialises transport access,
                            sendAsync() runs transmissions on a worker thread
   commands/
@@ -62,6 +63,7 @@ src/
     mainwindow.*           tabs, reader combo, connect button, log dock, status bar
     tabhandlersendcommand.*  "Send Command" tab controller (list of raw commands, send, load/save)
     tabhandlerrunscript.*    "Run Script" tab controller (command list + editor, load/save)
+    atrview.*              "ATR" tab (shown while connected): colour coded ATR, summary, byte-by-byte tree
     logview.*              QTableView log of reader/card traffic, SVG direction icons
     aboutdialog.*
 res/                       icons, forms, JSON schemas
@@ -78,7 +80,7 @@ res/                       icons, forms, JSON schemas
    answer returns as `responseReceived` on the GUI thread -> `logBytes(CardRsp)` -> `MainWindow` -> `LogView`.
 4. Run Script tab: list item selected -> `replaceCurrentView` builds the matching `CommandView*`; edits flow
    back through `notifyUpdateCommand` -> `model->setData(.., Qt::UserRole)`. `Command::execute(CardSession&)`
-   exists for every command type, but the tab does not run scripts yet.
+   runs through `ScriptRunner` on a worker thread (Run/Step/Stop); `CardSession` runs a monitor thread that detects card removal.
 5. Tests use `MockTransport` (tests/mocktransport.h) instead of a reader.
 
 ### File formats
