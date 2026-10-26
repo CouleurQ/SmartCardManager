@@ -56,6 +56,13 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="sendCommandButtonAdd">
+            <property name="text">
+             <string>A&amp;dd</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="horizontalSpacerButtons">
             <property name="orientation">
              <enum>Qt::Orientation::Horizontal</enum>
@@ -145,6 +152,61 @@
                <font>
                 <family>Monospace</family>
                </font>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelSendSw">
+              <property name="text">
+               <string>Status Word</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayoutSw">
+              <item>
+               <widget class="QLineEdit" name="sendCommandLineEditSw">
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Monospace</family>
+                 </font>
+                </property>
+                <property name="readOnly">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="sendCommandLineEditSwText">
+                <property name="readOnly">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelSendResponse">
+              <property name="text">
+               <string>Response</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTextEdit" name="sendCommandTextEditResponse">
+              <property name="font">
+               <font>
+                <family>Monospace</family>
+               </font>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
               </property>
              </widget>
             </item>
@@ -315,6 +377,19 @@
                </spacer>
               </item>
               <item>
+               <widget class="QCheckBox" name="runScriptCheckStopOnError">
+                <property name="toolTip">
+                 <string>Stop the script when a command fails or its response does not match the expected response</string>
+                </property>
+                <property name="text">
+                 <string>Stop on &amp;error</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
                <widget class="QPushButton" name="runScriptButtonRun">
                 <property name="text">
                  <string>&amp;Run</string>
@@ -325,6 +400,16 @@
                <widget class="QPushButton" name="runScriptButtonStep">
                 <property name="text">
                  <string>&amp;Step</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runScriptButtonStop">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="text">
+                 <string>S&amp;top</string>
                 </property>
                </widget>
               </item>

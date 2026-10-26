@@ -2,6 +2,7 @@
 #include "ui_commandviewapdu.h"
 #include "commands/commandapdu.h"
 
+#include <QTextDocument>
 #include <QTimer>
 
 
@@ -37,21 +38,38 @@ CommandViewApdu::CommandViewApdu(QSharedPointer<CommandApdu> obj, QWidget *paren
     ui->hexEditCLA->setMaxBytes(1);
     ui->hexEditCLA->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditCLA->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditCLA->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->hexEditINS->setMaxBytes(1);
     ui->hexEditINS->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditINS->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditINS->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->hexEditP1->setMaxBytes(1);
     ui->hexEditP1->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditP1->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditP1->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->hexEditP2->setMaxBytes(1);
     ui->hexEditP2->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditP2->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditP2->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->hexEditLe->setMaxBytes(1);
     ui->hexEditLe->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditLe->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditLe->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->hexEditExpectedResponse->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditExpectedResponse->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditExpectedResponse->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->lineEditLc->setFocusPolicy(Qt::NoFocus);
+
+    // size the single byte fields to exactly two characters (no scrollbar, nearly square)
+    HexEdit *byteEdits[] = {ui->hexEditCLA, ui->hexEditINS, ui->hexEditP1, ui->hexEditP2, ui->hexEditLe};
+    const QFontMetrics metrics(ui->hexEditCLA->font());
+    const int margin = 2 * (ui->hexEditCLA->frameWidth() + static_cast<int>(ui->hexEditCLA->document()->documentMargin())) + 2;
+    const int byteWidth = metrics.horizontalAdvance(QStringLiteral("00")) + margin;
+    const int byteHeight = metrics.lineSpacing() + margin;
+    for (HexEdit *edit : byteEdits)
+        edit->setFixedSize(byteWidth, byteHeight);
+    ui->lineEditLc->setFixedWidth(byteWidth);
+    ui->hexEditExpectedResponse->setFixedHeight(byteHeight);
 
     // set the focus (delayed)
     QTimer::singleShot(0, this, [this]() {

@@ -3,6 +3,7 @@
 #include "testutil.h"
 #include "privateaccess.h"
 #include "ui_mainwindow.h"
+#include "ui/listreorderhelper.h"
 
 #include <QTest>
 #include <QSignalSpy>
@@ -47,6 +48,12 @@ private slots:
     void sendWithoutCardLogsCommandAndNotifies();
     void sendWithCardLogsResponse();
     void sendEmptyCommandDoesNothing();
+    void responseShowsStatusWordAndFullResponse();
+    void addButtonAddsCommand();
+    void switchingCommandClearsResponse();
+    void lateResponseIsNotShownForAnotherCommand();
+    void outputFieldsAreGrey();
+    void dropMovesItemsWithoutLosingThem();
     void doubleClickSends();
 
     void loadReadsCommandList();
@@ -233,6 +240,111 @@ void TstSendCommand::sendWithCardLogsResponse()
     QCOMPARE(bytes.count(), 2);
     QCOMPARE(bytes.at(1).at(0).value<LogType>(), LogType::CardRsp);
     QCOMPARE(bytes.at(1).at(1).toByteArray(), QByteArray::fromHex("6A82"));
+}
+
+void TstSendCommand::responseShowsStatusWordAndFullResponse()
+{
+    transport->answers.insert(QByteArray::fromHex("80CA9F7F00"), QByteArray::fromHex("AABB9000"));
+    transport->answers.insert(QByteArray::fromHex("00A40400"), QByteArray::fromHex("6A82"));
+    session->setReader("Mock Reader 0");
+    session->connectCard();
+    QSignalSpy updates(tab, &TabHandlerSendCommand::update);
+
+    tab->hexEditCommandApdu->setData(QByteArray::fromHex("80CA9F7F00"));
+    tab->buttonActionSend();
+    QTRY_COMPARE(updates.count(), 1);
+    QCOMPARE(tab->lineEditSw->text(), QString("90 00"));
+    QCOMPARE(tab->lineEditSwText->text(), QString("Success"));
+    QCOMPARE(tab->textEditResponse->toPlainText(), QString("AA BB 90 00"));
+
+    tab->hexEditCommandApdu->setData(QByteArray::fromHex("00A40400"));
+    tab->buttonActionSend();
+    QTRY_COMPARE(updates.count(), 2);
+    QCOMPARE(tab->lineEditSw->text(), QString("6A 82"));
+    QCOMPARE(tab->lineEditSwText->text(), QString("File or application not found"));
+    QCOMPARE(tab->textEditResponse->toPlainText(), QString("6A 82"));
+}
+
+void TstSendCommand::switchingCommandClearsResponse()
+{
+    transport->answers.insert(QByteArray::fromHex("80CA9F7F00"), QByteArray::fromHex("AABB9000"));
+    session->setReader("Mock Reader 0");
+    session->connectCard();
+    tab->_buttonActionAdd("a", QByteArray::fromHex("80CA9F7F00"));
+    tab->_buttonActionAdd("b", QByteArray::fromHex("00A40400"));
+    select(0);
+    QSignalSpy updates(tab, &TabHandlerSendCommand::update);
+    tab->buttonActionSend();
+    QTRY_COMPARE(updates.count(), 1);
+    QCOMPARE(tab->lineEditSw->text(), QString("90 00"));
+
+    select(1);
+    QVERIFY(tab->lineEditSw->text().isEmpty());
+    QVERIFY(tab->lineEditSwText->text().isEmpty());
+    QVERIFY(tab->textEditResponse->toPlainText().isEmpty());
+}
+
+void TstSendCommand::lateResponseIsNotShownForAnotherCommand()
+{
+    session->setReader("Mock Reader 0");
+    session->connectCard();
+    tab->_buttonActionAdd("a", QByteArray::fromHex("80CA9F7F00"));
+    tab->_buttonActionAdd("b", QByteArray::fromHex("00A40400"));
+    select(0);
+    tab->buttonActionSend();
+    select(1);
+    tab->onResponseReceived(QByteArray(), QByteArray::fromHex("9000"));
+    QVERIFY(tab->lineEditSw->text().isEmpty());
+}
+
+void TstSendCommand::outputFieldsAreGrey()
+{
+    for (QWidget *w : {static_cast<QWidget *>(tab->lineEditSw), static_cast<QWidget *>(tab->lineEditSwText), static_cast<QWidget *>(tab->textEditResponse)})
+        QVERIFY(w->palette().color(QPalette::Base) != tab->lineEditCommandName->palette().color(QPalette::Base));
+}
+
+void TstSendCommand::dropMovesItemsWithoutLosingThem()
+{
+    tab->_buttonActionAdd("a", QByteArray::fromHex("01"));
+    tab->_buttonActionAdd("b", QByteArray::fromHex("02"));
+    tab->_buttonActionAdd("c", QByteArray::fromHex("03"));
+    window->resize(900, 700);
+    ui->tabWidget->setCurrentWidget(ui->tabSendCommand);
+    QVERIFY(QTest::qWaitForWindowExposed(window));
+    auto belowRow = [&](int row) { return tab->listView->visualRect(model->index(row, 0)).bottomLeft() + QPoint(5, -2); };
+
+    select(0);
+    QVERIFY(tab->reorder->drop(belowRow(2)));
+    QCOMPARE(names(), QStringList({"b", "c", "a"}));
+    QCOMPARE(model->item(2)->data(Qt::UserRole).toByteArray(), QByteArray::fromHex("01"));
+    QCOMPARE(tab->listView->currentIndex().row(), 2);
+
+    // the same through real drag events (the mime type is the helper's own)
+    QMimeData mime;
+    mime.setData("application/x-smartcardmanager-listrows", "rows");
+    select(2);
+    QDragEnterEvent enter(belowRow(0), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(tab->listView->viewport(), &enter);
+    QVERIFY(enter.isAccepted());
+    QDropEvent drop(QPointF(tab->listView->visualRect(model->index(0, 0)).topLeft() + QPoint(5, 2)), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(tab->listView->viewport(), &drop);
+    QCOMPARE(names(), QStringList({"a", "b", "c"}));
+    QCOMPARE(drop.dropAction(), Qt::CopyAction);   // not a move: the view must not delete the source row
+
+    select(2);
+    const QPoint aboveFirst = tab->listView->visualRect(model->index(0, 0)).topLeft() + QPoint(5, 2);
+    QVERIFY(tab->reorder->drop(aboveFirst));
+    QCOMPARE(names(), QStringList({"c", "a", "b"}));
+    select(0);
+    QVERIFY(!tab->reorder->drop(aboveFirst));      // already first
+}
+
+void TstSendCommand::addButtonAddsCommand()
+{
+    QCOMPARE(model->rowCount(), 0);
+    tab->buttonAdd->click();
+    QCOMPARE(model->rowCount(), 1);
+    QCOMPARE(tab->listView->currentIndex().row(), 0);
 }
 
 void TstSendCommand::sendEmptyCommandDoesNothing()

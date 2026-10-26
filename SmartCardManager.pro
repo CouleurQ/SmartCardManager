@@ -11,6 +11,7 @@ INCLUDEPATH += $$PWD/src/controls
 
 SOURCES += \
     src/main.cpp \
+    src/card/atrparser.cpp \
     src/card/cardsession.cpp \
     src/card/pcsctransport.cpp \
     src/commands/command.cpp \
@@ -22,10 +23,13 @@ SOURCES += \
     src/commands/commandviewapdu.cpp \
     src/commands/commandviewsendbytes.cpp \
     src/commands/commandviewterminal.cpp \
+    src/commands/scriptrunner.cpp \
     src/controls/hexedit.cpp \
     src/io/commandlistfile.cpp \
     src/io/scriptfile.cpp \
     src/ui/aboutdialog.cpp \
+    src/ui/atrview.cpp \
+    src/ui/listreorderhelper.cpp \
     src/ui/logview.cpp \
     src/ui/mainwindow.cpp \
     src/ui/tabhandlerrunscript.cpp \
@@ -33,6 +37,7 @@ SOURCES += \
     src/utility.cpp
 
 HEADERS += \
+    src/card/atrparser.h \
     src/card/cardsession.h \
     src/card/icardtransport.h \
     src/card/pcsctransport.h \
@@ -46,12 +51,15 @@ HEADERS += \
     src/commands/commandviewsendbytes.h \
     src/commands/commandviewterminal.h \
     src/commands/runscriptmodel.h \
+    src/commands/scriptrunner.h \
     src/controls/hexedit.h \
     src/global.h \
     src/io/commandlistfile.h \
     src/io/jsonwriter.h \
     src/io/scriptfile.h \
     src/ui/aboutdialog.h \
+    src/ui/atrview.h \
+    src/ui/listreorderhelper.h \
     src/ui/logview.h \
     src/ui/mainwindow.h \
     src/ui/tabhandlerrunscript.h \

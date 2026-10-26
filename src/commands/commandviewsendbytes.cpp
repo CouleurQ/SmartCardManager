@@ -26,6 +26,7 @@ CommandViewSendBytes::CommandViewSendBytes(QSharedPointer<CommandSendBytes> obj,
     ui->hexEditCommandApdu->setMaxBytes(261);
     ui->hexEditExpectedResponse->setLineWrapMode(QTextEdit::NoWrap);
     ui->hexEditExpectedResponse->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->hexEditExpectedResponse->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
 
     // set the focus (delayed) and update the listview

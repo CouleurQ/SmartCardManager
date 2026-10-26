@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QStandardItemModel>
+#include "listreorderhelper.h"
+#include <QPalette>
 #include <QStandardItem>
 #include <QMessageBox>
 #include <QMenu>
@@ -30,6 +32,14 @@ TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, CardSession *se
     Q_ASSERT(buttonLoad != nullptr);
     buttonSave = tabWidget->findChild<QPushButton *>("sendCommandButtonSave");
     Q_ASSERT(buttonSave != nullptr);
+    buttonAdd = tabWidget->findChild<QPushButton *>("sendCommandButtonAdd");
+    Q_ASSERT(buttonAdd != nullptr);
+    lineEditSw = tabWidget->findChild<QLineEdit *>("sendCommandLineEditSw");
+    Q_ASSERT(lineEditSw != nullptr);
+    lineEditSwText = tabWidget->findChild<QLineEdit *>("sendCommandLineEditSwText");
+    Q_ASSERT(lineEditSwText != nullptr);
+    textEditResponse = tabWidget->findChild<QTextEdit *>("sendCommandTextEditResponse");
+    Q_ASSERT(textEditResponse != nullptr);
     buttonSend = tabWidget->findChild<QPushButton *>("sendCommandButtonSend");
     Q_ASSERT(buttonSend != nullptr);
     lineEditFilename = tabWidget->findChild<QLineEdit *>("sendCommandLineEditFilename");
@@ -41,12 +51,21 @@ TabHandlerSendCommand::TabHandlerSendCommand(QWidget *tabWidget, CardSession *se
     hexEditCommandApdu = tabWidget->findChild<HexEdit *>("sendCommandHexEditCommandApdu");
     Q_ASSERT(hexEditCommandApdu != nullptr);
 
+    // read-only output fields look different from editable ones
+    for (QWidget *w : {static_cast<QWidget *>(lineEditSw), static_cast<QWidget *>(lineEditSwText), static_cast<QWidget *>(textEditResponse)}) {
+        QPalette pal = w->palette();
+        pal.setColor(QPalette::Base, pal.color(QPalette::Window));
+        w->setPalette(pal);
+    }
+
     QStandardItemModel *model = new QStandardItemModel(this);
     listView->setModel(model);
     listView->setContextMenuPolicy(Qt::CustomContextMenu);
+    reorder = new ListReorderHelper(listView, [this](const QList<int> &rows, int target) { moveItems(rows, target); });
 
     connect(buttonLoad, &QPushButton::clicked, this, &TabHandlerSendCommand::buttonActionLoad);
     connect(buttonSave, &QPushButton::clicked, this, &TabHandlerSendCommand::buttonActionSave);
+    connect(buttonAdd, &QPushButton::clicked, this, &TabHandlerSendCommand::buttonActionAdd);
     connect(buttonSend, &QPushButton::clicked, this, &TabHandlerSendCommand::buttonActionSend);
     connect(listView, &QListView::clicked, this, &TabHandlerSendCommand::onItemClicked);
     connect(listView, &QListView::doubleClicked, this, &TabHandlerSendCommand::onItemDoubleClicked);
@@ -136,6 +155,8 @@ void TabHandlerSendCommand::onItemClicked(const QModelIndex &index)
 void TabHandlerSendCommand::onItemSelected(const QModelIndex &current, const QModelIndex &previous)
 {
     (void) previous;
+
+    clearResponse();
 
     if (current.isValid()) {
         QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
@@ -242,6 +263,7 @@ void TabHandlerSendCommand::_buttonActionAdd(const QString &cmdName, const QByte
 
     // add item
     QStandardItem *item = new QStandardItem(cmdName);
+    item->setFlags(item->flags() & ~Qt::ItemIsDropEnabled);
     item->setData(cmdData, Qt::UserRole);
     model->appendRow(item);
 
@@ -282,6 +304,7 @@ void TabHandlerSendCommand::_buttonActionLoad(const QString &filePath)
     QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
     for (const auto &entry : entries) {
         QStandardItem *item = new QStandardItem(entry.name);
+        item->setFlags(item->flags() & ~Qt::ItemIsDropEnabled);
         item->setData(entry.data, Qt::UserRole);
         model->appendRow(item);
     }
@@ -329,6 +352,8 @@ void TabHandlerSendCommand::buttonActionSend()
 
     emit logBytes(LogType::CardCmd, cmd);
 
+    sentIndex = QPersistentModelIndex(listView->currentIndex());
+    sentPending = true;
     session->sendAsync(cmd);
 }
 
@@ -337,12 +362,63 @@ void TabHandlerSendCommand::onResponseReceived(const QByteArray &command, const 
 {
     Q_UNUSED(command)
 
+    // the response belongs to the command that was sent, not to whatever is selected now
+    if (!sentPending || sentIndex == QPersistentModelIndex(listView->currentIndex()))
+        showResponse(response);
     if (response.length() >= 2)
         emit logBytes(LogType::CardRsp, response);
     else
         emit logString(LogType::Error, "No response from card");
 
     emit update();
+}
+
+
+void TabHandlerSendCommand::moveItems(const QList<int> &rows, int target)
+{
+    QStandardItemModel *model = qobject_cast<QStandardItemModel *>(listView->model());
+    const int current = listView->currentIndex().row();
+    int newCurrent = -1;
+
+    // take the rows out (bottom up), then put them back in front of the former target row
+    QList<QList<QStandardItem *>> taken;
+    for (int i = rows.size() - 1; i >= 0; --i)
+        taken.prepend(model->takeRow(rows.at(i)));
+    int insertAt = target;
+    for (int r : rows)
+        if (r < target)
+            --insertAt;
+    for (int i = 0; i < taken.size(); ++i) {
+        if (rows.at(i) == current)
+            newCurrent = insertAt + i;
+        model->insertRow(insertAt + i, taken.at(i));
+    }
+
+    if (newCurrent >= 0)
+        listView->setCurrentIndex(model->index(newCurrent, 0));
+}
+
+
+void TabHandlerSendCommand::clearResponse()
+{
+    textEditResponse->clear();
+    lineEditSw->clear();
+    lineEditSwText->clear();
+}
+
+
+void TabHandlerSendCommand::showResponse(const QByteArray &response)
+{
+    textEditResponse->setPlainText(Utility::byteArrayToHexString(response));
+    if (response.size() < 2) {
+        lineEditSw->clear();
+        lineEditSwText->clear();
+        return;
+    }
+    const quint8 sw1 = static_cast<quint8>(response[response.size() - 2]);
+    const quint8 sw2 = static_cast<quint8>(response[response.size() - 1]);
+    lineEditSw->setText(Utility::byteArrayToHexString(response.right(2)));
+    lineEditSwText->setText(Utility::statusWordText(sw1, sw2));
 }
 
 
@@ -355,7 +431,7 @@ bool TabHandlerSendCommand::eventFilter(QObject *obj, QEvent *event)
                 dragEvent->acceptProposedAction();
                 return true;
             }
-        } else if (event->type() == QEvent::Drop) {
+        } else if (event->type() == QEvent::Drop && static_cast<QDropEvent *>(event)->mimeData()->hasUrls()) {
             QDropEvent *dropEvent = static_cast<QDropEvent *>(event);
             QStringList filePaths;
             for (const QUrl &url : dropEvent->mimeData()->urls()) {

@@ -6,11 +6,14 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QListView>
+#include <QTextEdit>
 #include "hexedit.h"
 
 #include "global.h"
 #include "card/cardsession.h"
 
+
+class ListReorderHelper;
 
 class TabHandlerSendCommand : public QObject
 {
@@ -50,11 +53,22 @@ private:
 
     QPushButton *buttonLoad;
     QPushButton *buttonSave;
+    QPushButton *buttonAdd;
     QPushButton *buttonSend;
     QLineEdit *lineEditFilename;
     QListView *listView;
     QLineEdit *lineEditCommandName;
     HexEdit *hexEditCommandApdu;
+    QLineEdit *lineEditSw;
+    QLineEdit *lineEditSwText;
+    QTextEdit *textEditResponse;
+
+    void showResponse(const QByteArray &response);
+    void clearResponse();
+    void moveItems(const QList<int> &rows, int target);
+    ListReorderHelper *reorder;
+    QPersistentModelIndex sentIndex;
+    bool sentPending = false;
 
 signals:
     void logBytes(LogType type, const QByteArray& hexBytes);

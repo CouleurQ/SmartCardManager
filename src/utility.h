@@ -13,6 +13,9 @@ QByteArray hexStringToByteArray(const QString &hexString);
 // "00 A4 04" (upper case, space separated)
 QString byteArrayToHexString(const QByteArray &data);
 
+// Human readable meaning of a status word (ISO 7816-4, GlobalPlatform)
+QString statusWordText(quint8 sw1, quint8 sw2);
+
 }
 
 #endif

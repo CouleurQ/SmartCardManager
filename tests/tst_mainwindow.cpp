@@ -2,6 +2,7 @@
 #include "mocktransport.h"
 #include "privateaccess.h"
 #include "ui_mainwindow.h"
+#include "ui/atrview.h"
 
 #include <QTest>
 #include <QSignalSpy>
@@ -18,6 +19,10 @@ private slots:
     void sendCommandTabSignalsAreWired();
     void runScriptTabSignalsAreWired();
     void exitActionClosesWindow();
+    void readersAreListedInTheBackground();
+    void connectDisconnectResetRunInTheBackground();
+    void cardRemovalSwitchesToDisconnectedState();
+    void atrTabIsShownWhileConnected();
 };
 
 void TstMainWindow::startsDisconnected()
@@ -112,6 +117,93 @@ void TstMainWindow::exitActionClosesWindow()
     QVERIFY(QTest::qWaitForWindowExposed(&w));
     w.ui->actionExit->trigger();
     QVERIFY(!w.isVisible());
+}
+
+void TstMainWindow::readersAreListedInTheBackground()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
+    w.show();
+
+    QTRY_COMPARE(w.cardReaderCombo->count(), 2);
+    QCOMPARE(session.reader(), QString("Mock Reader 0"));
+
+    w.cardReaderCombo->setCurrentIndex(1);
+    QCOMPARE(session.reader(), QString("Mock Reader 1"));
+}
+
+void TstMainWindow::connectDisconnectResetRunInTheBackground()
+{
+    MockTransport transport;
+    transport.transmitDelayMs = 0;
+    CardSession session(&transport);
+    MainWindow w(&session);
+    w.show();
+    QTRY_COMPARE(w.cardReaderCombo->count(), 2);
+
+    w.ui->actionConnect->trigger();
+    QVERIFY(!w.ui->actionConnect->isEnabled());     // busy until the worker is done
+    QTRY_VERIFY(session.isConnected());
+    QTRY_VERIFY(w.ui->actionDisconnect->isEnabled());
+    QVERIFY(w.ui->actionReset->isEnabled());
+    QVERIFY(!w.ui->actionConnect->isEnabled());
+
+    w.ui->actionReset->trigger();
+    QTRY_COMPARE(transport.resetCount, 1);
+    QTRY_VERIFY(w.ui->actionReset->isEnabled());
+
+    w.ui->actionDisconnect->trigger();
+    QTRY_VERIFY(!session.isConnected());
+    QTRY_VERIFY(w.ui->actionConnect->isEnabled());
+}
+
+void TstMainWindow::cardRemovalSwitchesToDisconnectedState()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
+    w.show();
+    QTRY_COMPARE(w.cardReaderCombo->count(), 2);
+    w.ui->actionConnect->trigger();
+    QTRY_VERIFY(w.ui->actionDisconnect->isEnabled());
+    QVERIFY(w.statusLine->text().startsWith("Connected"));
+
+    transport.cardInserted = false;
+
+    QTRY_VERIFY(w.ui->actionConnect->isEnabled());
+    QVERIFY(!w.ui->actionDisconnect->isEnabled());
+    QVERIFY(!w.ui->actionReset->isEnabled());
+    QVERIFY(w.statusLine->text().startsWith("Ready"));
+    // the removal is reported in the log view
+    auto *model = w.ui->logView->model();
+    bool found = false;
+    for (int i = 0; i < model->rowCount(); ++i)
+        found = found || model->index(i, 1).data().toString().contains("Card removed");
+    QVERIFY(found);
+}
+
+void TstMainWindow::atrTabIsShownWhileConnected()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    MainWindow w(&session);
+    w.show();
+    QTRY_COMPARE(w.cardReaderCombo->count(), 2);
+
+    auto *tabs = w.ui->tabWidget;
+    auto *atrTab = w.findChild<AtrView *>("tabAtr");
+    QVERIFY(atrTab);
+    QCOMPARE(tabs->tabText(tabs->indexOf(atrTab)), QString("ATR"));
+    QVERIFY(!tabs->isTabVisible(tabs->indexOf(atrTab)));
+    QCOMPARE(tabs->indexOf(atrTab), tabs->count() - 1);   // right most
+
+    w.ui->actionConnect->trigger();
+    QTRY_VERIFY(tabs->isTabVisible(tabs->indexOf(atrTab)));
+    QCOMPARE(atrTab->atr(), transport.cardAtr);
+
+    transport.cardInserted = false;
+    QTRY_VERIFY(!tabs->isTabVisible(tabs->indexOf(atrTab)));
 }
 
 static TestRegistrar<TstMainWindow> registrar;

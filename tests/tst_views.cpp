@@ -4,6 +4,7 @@
 #include "commands/commandviewsendbytes.h"
 #include "commands/commandviewterminal.h"
 
+#include <QScrollBar>
 #include <QTest>
 #include <QSignalSpy>
 #include <QLineEdit>
@@ -20,6 +21,7 @@ private slots:
     void apduLcFollowsDataLength();
     void apduFieldsAreLimited();
     void apduLcIsNotFocusable();
+    void apduByteFieldsFitTheirContent();
     void sendBytesShowsCommand();
     void sendBytesEditsEmitUpdatedCommand();
     void terminalShowsAction();
@@ -51,6 +53,24 @@ void TstViews::apduShowsCommand()
     QCOMPARE(view.findChild<HexEdit *>("hexEditLe")->toPlainText(), QString("00"));
     QCOMPARE(view.findChild<HexEdit *>("hexEditExpectedResponse")->toPlainText(), QString("90 00"));
     QCOMPARE(view.findChild<QLineEdit *>("lineEditLc")->text(), QString("5"));
+}
+
+void TstViews::apduByteFieldsFitTheirContent()
+{
+    auto cmd = QSharedPointer<CommandApdu>::create();
+    cmd->cla = cmd->ins = cmd->p1 = cmd->p2 = cmd->le = QByteArray::fromHex("FF");
+    CommandViewApdu view(cmd);
+    view.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&view));
+
+    for (const char *name : {"hexEditCLA", "hexEditINS", "hexEditP1", "hexEditP2", "hexEditLe"}) {
+        auto *edit = view.findChild<HexEdit *>(name);
+        QVERIFY2(edit->width() <= 36, name);                                       // compact
+        QVERIFY2(edit->document()->size().width() <= edit->viewport()->width(), name);
+        QVERIFY2(edit->document()->size().height() <= edit->viewport()->height(), name);
+        QVERIFY2(!edit->verticalScrollBar()->isVisible(), name);
+        QVERIFY2(!edit->horizontalScrollBar()->isVisible(), name);
+    }
 }
 
 void TstViews::apduEmptyForNullCommand()

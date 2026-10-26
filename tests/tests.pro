@@ -14,6 +14,7 @@ INCLUDEPATH += $$PWD/../src $$PWD/../src/controls
 # Keep in sync with ../SmartCardManager.pro (the lists are intentionally not shared).
 APP = $$PWD/../src
 SOURCES += \
+    $$APP/card/atrparser.cpp \
     $$APP/card/cardsession.cpp \
     $$APP/card/pcsctransport.cpp \
     $$APP/commands/command.cpp \
@@ -25,10 +26,13 @@ SOURCES += \
     $$APP/commands/commandviewapdu.cpp \
     $$APP/commands/commandviewsendbytes.cpp \
     $$APP/commands/commandviewterminal.cpp \
+    $$APP/commands/scriptrunner.cpp \
     $$APP/controls/hexedit.cpp \
     $$APP/io/commandlistfile.cpp \
     $$APP/io/scriptfile.cpp \
     $$APP/ui/aboutdialog.cpp \
+    $$APP/ui/atrview.cpp \
+    $$APP/ui/listreorderhelper.cpp \
     $$APP/ui/logview.cpp \
     $$APP/ui/mainwindow.cpp \
     $$APP/ui/tabhandlerrunscript.cpp \
@@ -36,6 +40,7 @@ SOURCES += \
     $$APP/utility.cpp
 
 HEADERS += \
+    $$APP/card/atrparser.h \
     $$APP/card/cardsession.h \
     $$APP/card/icardtransport.h \
     $$APP/card/pcsctransport.h \
@@ -49,12 +54,15 @@ HEADERS += \
     $$APP/commands/commandviewsendbytes.h \
     $$APP/commands/commandviewterminal.h \
     $$APP/commands/runscriptmodel.h \
+    $$APP/commands/scriptrunner.h \
     $$APP/controls/hexedit.h \
     $$APP/global.h \
     $$APP/io/commandlistfile.h \
     $$APP/io/jsonwriter.h \
     $$APP/io/scriptfile.h \
     $$APP/ui/aboutdialog.h \
+    $$APP/ui/atrview.h \
+    $$APP/ui/listreorderhelper.h \
     $$APP/ui/logview.h \
     $$APP/ui/mainwindow.h \
     $$APP/ui/tabhandlerrunscript.h \
@@ -79,6 +87,7 @@ RESOURCES += $$PWD/../res/resources.qrc
 SOURCES += \
     main.cpp \
     tst_utility.cpp \
+    tst_atr.cpp \
     tst_commands.cpp \
     tst_hexedit.cpp \
     tst_views.cpp \

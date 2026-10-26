@@ -8,6 +8,7 @@
 #include <QSvgWidget>
 
 #include "card/cardsession.h"
+#include "atrview.h"
 #include "logview.h"
 #include "tabhandlersendcommand.h"
 #include "tabhandlerrunscript.h"
@@ -37,8 +38,10 @@ private:
     QComboBox *cardReaderCombo;
     QLineEdit *statusLine;
     QSvgWidget *connectionIcon;
+    AtrView *atrView;
     TabHandlerSendCommand *tabSendCommand;
     TabHandlerRunScript *tabRunScript;
+    bool busy = false;      // a connect/disconnect/reset is running in the background
 
 private slots:
     void logBytes(const LogType type, const QByteArray& data);
@@ -46,6 +49,8 @@ private slots:
 
 private:
     void updateUiState();
+    void onSessionStateChanged();
+    void onReadersListed(const QStringList &readers);
 
     void actionConnect();
     void actionDisconnect();

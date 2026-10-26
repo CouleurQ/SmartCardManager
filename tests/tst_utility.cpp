@@ -11,6 +11,7 @@ private slots:
     void hexStringToByteArray_data();
     void hexStringToByteArray();
     void hexStringToByteArray_oddDigitCountPadsTrailingZero();
+    void statusWordText();
 };
 
 void TstUtility::hexStringToByteArray_data()
@@ -42,6 +43,16 @@ void TstUtility::hexStringToByteArray_oddDigitCountPadsTrailingZero()
 {
     QCOMPARE(Utility::hexStringToByteArray("A"), QByteArray::fromHex("A0"));
     QCOMPARE(Utility::hexStringToByteArray("00 A"), QByteArray::fromHex("00A0"));
+}
+
+void TstUtility::statusWordText()
+{
+    QCOMPARE(Utility::statusWordText(0x90, 0x00), QString("Success"));
+    QVERIFY(Utility::statusWordText(0x61, 0x20).contains("32"));
+    QVERIFY(Utility::statusWordText(0x6C, 0x10).contains("16"));
+    QVERIFY(Utility::statusWordText(0x63, 0xC2).contains("2 attempt"));
+    QVERIFY(Utility::statusWordText(0x6A, 0x82).contains("not found"));
+    QVERIFY(!Utility::statusWordText(0x12, 0x34).isEmpty());
 }
 
 static TestRegistrar<TstUtility> registrar;

@@ -65,7 +65,12 @@ MainWindow::MainWindow(CardSession *session, QWidget *parent)
 
     // TabViews
     tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand, session, this);
-    tabRunScript = new TabHandlerRunScript(ui->tabRunScript, this);
+    tabRunScript = new TabHandlerRunScript(ui->tabRunScript, session, this);
+
+    atrView = new AtrView;
+    atrView->setObjectName("tabAtr");
+    ui->tabWidget->addTab(atrView, "ATR");
+    ui->tabWidget->setTabVisible(ui->tabWidget->indexOf(atrView), false);
 
     // Menubar
     connect(ui->actionExit, &QAction::triggered, this, &QMainWindow::close);
@@ -83,7 +88,8 @@ MainWindow::MainWindow(CardSession *session, QWidget *parent)
 
     // signal slots
     connect(session, &CardSession::log, this, &MainWindow::logString);
-    connect(session, &CardSession::stateChanged, this, &MainWindow::updateUiState);
+    connect(session, &CardSession::stateChanged, this, &MainWindow::onSessionStateChanged);
+    connect(session, &CardSession::readersListed, this, &MainWindow::onReadersListed);
     connect(tabSendCommand, &TabHandlerSendCommand::logBytes, this, &MainWindow::logBytes);
     connect(tabSendCommand, &TabHandlerSendCommand::logString, this, &MainWindow::logString);
     connect(tabSendCommand, &TabHandlerSendCommand::update, this, &MainWindow::updateUiState);
@@ -123,9 +129,15 @@ void MainWindow::updateUiState()
     bool connected = session->isConnected();
 
     // Toolbar states
-    ui->actionConnect->setEnabled(!connected);
-    ui->actionDisconnect->setEnabled(connected);
-    ui->actionReset->setEnabled(connected);
+    ui->actionConnect->setEnabled(!connected && !busy);
+    ui->actionDisconnect->setEnabled(connected && !busy);
+    ui->actionReset->setEnabled(connected && !busy);
+
+    // ATR tab: only while a card is connected
+    const QByteArray atr = session->atr();
+    if (atr != atrView->atr())
+        atrView->setAtr(atr);
+    ui->tabWidget->setTabVisible(ui->tabWidget->indexOf(atrView), connected);
 
     // Statusbar
     connectionIcon->load(QString(connected ? ":/res/icons/action_connect.svg" : ":/res/icons/action_disconnect.svg"));
@@ -138,37 +150,53 @@ void MainWindow::updateUiState()
 }
 
 
+void MainWindow::onSessionStateChanged()
+{
+    busy = false;
+    updateUiState();
+}
+
+
 void MainWindow::actionConnect()
 {
     logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Connect card in reader", session->reader()));
-    session->connectCard();
+    busy = true;
     updateUiState();
+    session->connectCardAsync();
 }
 
 
 void MainWindow::actionDisconnect()
 {
     logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Disconnect card in reader", session->reader()));
-    session->disconnectCard();
+    busy = true;
     updateUiState();
+    session->disconnectCardAsync();
 }
 
 
 void MainWindow::actionReset()
 {
     logView->addLogEntry(LogType::Terminal, QString("%1: %2").arg("Reset card in reader", session->reader()));
-    session->reset();
+    busy = true;
     updateUiState();
+    session->resetAsync();
 }
 
 
 void MainWindow::actionRefresh()
 {
+    session->readersAsync();
+}
+
+
+void MainWindow::onReadersListed(const QStringList &readers)
+{
     const QString previousReader = session->reader();
 
     cardReaderCombo->blockSignals(true);
     cardReaderCombo->clear();
-    cardReaderCombo->addItems(session->readers());
+    cardReaderCombo->addItems(readers);
     const int previousIndex = cardReaderCombo->findText(previousReader);
     cardReaderCombo->setCurrentIndex(previousIndex >= 0 ? previousIndex : (cardReaderCombo->count() > 0 ? 0 : -1));
     cardReaderCombo->blockSignals(false);
@@ -183,11 +211,7 @@ void MainWindow::actionRefresh()
 
 void MainWindow::actionReaderChanged()
 {
-    if (session->isConnected())
-        session->disconnectCard();
-
-    session->reader() = cardReaderCombo->currentText();
-    updateUiState();
+    session->setReader(cardReaderCombo->currentText());
 }
 
 
