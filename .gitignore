@@ -2,3 +2,8 @@ internal.txt
 *.user
 build/*
 tmp/*
+docs/CODE_REVIEW.md
+res/commandListScheme.json
+res/defaultCommandList.json
+res/defaultScriptFile.json
+res/scriptFileScheme.json
