@@ -3,6 +3,8 @@
 #include <pcsclite.h>
 #include <winscard.h>
 
+#include <QMutexLocker>
+
 #include <cstring>
 #include <vector>
 
@@ -26,6 +28,8 @@ PcscTransport::~PcscTransport()
         SCardDisconnect(hCard, SCARD_LEAVE_CARD);
     if (hContext != 0)
         SCardReleaseContext(hContext);
+    if (hStatusContext != 0)
+        SCardReleaseContext(hStatusContext);
 }
 
 
@@ -48,6 +52,7 @@ bool PcscTransport::connectCard(const QString &readerName)
 
     hCard = card;
     dwActiveProtocol = protocol;
+    readAtr();
     return true;
 }
 
@@ -62,22 +67,37 @@ bool PcscTransport::disconnectCard()
         emit log(LogType::Error, errorText("Failed to disconnect from card", rv));
 
     hCard = 0;
+    cardAtr.clear();
     return (rv == SCARD_S_SUCCESS);
 }
 
 
 bool PcscTransport::reset()
 {
+    return reconnect(SCARD_RESET_CARD, "Failed to reset the card");
+}
+
+
+bool PcscTransport::coldReset()
+{
+    return reconnect(SCARD_UNPOWER_CARD, "Failed to power-cycle the card");
+}
+
+
+bool PcscTransport::reconnect(DWORD initialization, const char *what)
+{
     if (hCard == 0)
         return false;
 
-    LONG rv = SCardReconnect(hCard, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, SCARD_RESET_CARD, &dwActiveProtocol);
+    LONG rv = SCardReconnect(hCard, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, initialization, &dwActiveProtocol);
     if (rv != SCARD_S_SUCCESS) {
-        emit log(LogType::Error, errorText("Failed to reset the card", rv));
+        emit log(LogType::Error, errorText(what, rv));
         hCard = 0;
+        cardAtr.clear();
         return false;
     }
 
+    readAtr();
     return true;
 }
 
@@ -85,6 +105,26 @@ bool PcscTransport::reset()
 bool PcscTransport::isConnected() const
 {
     return (hCard != 0);
+}
+
+
+QByteArray PcscTransport::atr() const
+{
+    return cardAtr;
+}
+
+
+void PcscTransport::readAtr()
+{
+    cardAtr.clear();
+    if (hCard == 0)
+        return;
+
+    unsigned char buffer[MAX_ATR_SIZE];
+    DWORD atrLength = sizeof(buffer);
+    DWORD readerLength = 0, state = 0, protocol = 0;
+    if (SCardStatus(hCard, nullptr, &readerLength, &state, &protocol, buffer, &atrLength) == SCARD_S_SUCCESS)
+        cardAtr = QByteArray(reinterpret_cast<const char *>(buffer), static_cast<qsizetype>(atrLength));
 }
 
 
@@ -109,6 +149,12 @@ QByteArray PcscTransport::transmit(const QByteArray &command)
                             static_cast<DWORD>(command.size()), nullptr, recvBuffer.data(), &recvLength);
     if (rv != SCARD_S_SUCCESS) {
         emit log(LogType::Error, errorText("Failed to send command", rv));
+        if (rv == SCARD_W_REMOVED_CARD || rv == SCARD_E_NO_SMARTCARD || rv == SCARD_E_READER_UNAVAILABLE
+            || rv == SCARD_E_NO_SERVICE || rv == SCARD_E_SERVICE_STOPPED) {
+            // the connection is gone for good
+            SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+            hCard = 0;
+        }
         return QByteArray();
     }
 
@@ -148,6 +194,43 @@ QStringList PcscTransport::readers()
     }
 
     return cardReaderList;
+}
+
+
+ICardTransport::Presence PcscTransport::waitPresenceChange(const QString &readerName, Presence known, int timeoutMs)
+{
+    // own context: must not interfere with the one used for the transmissions
+    QMutexLocker lock(&statusMutex);
+    if (hStatusContext == 0 && SCardEstablishContext(SCARD_SCOPE_SYSTEM, nullptr, nullptr, &hStatusContext) != SCARD_S_SUCCESS) {
+        hStatusContext = 0;
+        return Presence::Unknown;
+    }
+
+    const QByteArray name = readerName.toUtf8();
+    SCARD_READERSTATE state;
+    std::memset(&state, 0, sizeof(state));
+    state.szReader = name.constData();
+    state.dwCurrentState = (known == Presence::Present) ? SCARD_STATE_PRESENT
+                         : (known == Presence::Absent) ? SCARD_STATE_EMPTY : SCARD_STATE_UNAWARE;
+
+    const LONG rv = SCardGetStatusChange(hStatusContext, known == Presence::Unknown ? 0 : static_cast<DWORD>(timeoutMs), &state, 1);
+
+    if (rv == SCARD_E_TIMEOUT)
+        return known;
+    if (rv == SCARD_E_UNKNOWN_READER || rv == SCARD_E_READER_UNAVAILABLE)
+        return Presence::Absent;
+    if (rv != SCARD_S_SUCCESS) {
+        // e.g. the service restarted: start over with a new context next time
+        SCardReleaseContext(hStatusContext);
+        hStatusContext = 0;
+        return Presence::Unknown;
+    }
+
+    if (state.dwEventState & (SCARD_STATE_UNKNOWN | SCARD_STATE_IGNORE))
+        return Presence::Absent;
+    if (state.dwEventState & SCARD_STATE_UNAVAILABLE)
+        return Presence::Unknown;   // e.g. reserved exclusively by another application
+    return (state.dwEventState & SCARD_STATE_PRESENT) ? Presence::Present : Presence::Absent;
 }
 
 

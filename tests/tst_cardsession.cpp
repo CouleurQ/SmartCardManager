@@ -7,6 +7,9 @@
 
 #include <QTest>
 #include <QSignalSpy>
+#include <QElapsedTimer>
+
+#include <thread>
 
 class TstCardSession : public QObject
 {
@@ -26,6 +29,20 @@ private slots:
     void apduIsBuilt();
     void apduExecuteSendsBuiltApdu();
     void terminalCommandsDriveSession();
+
+    void asyncOperationsRunInTheBackground();
+    void readersAsyncEmitsTheList();
+    void queriesDoNotBlockDuringTransmission();
+    void changingReaderDropsConnectionInTheBackground();
+    void cardRemovalDisconnects();
+    void cardRemovalWhileDisconnectedIsIgnored();
+    void reconnectAfterRemovalWorks();
+    void waitForPresenceSeesInsertionAndRemoval();
+    void waitForPresenceTimesOutAndCancels();
+    void waitCommandsUseThePresence();
+    void coldResetIsDistinct();
+    void twoByteExpectationComparesStatusWordOnly();
+    void atrIsCachedWhileConnected();
 };
 
 void TstCardSession::readersComeFromTransport()
@@ -174,6 +191,53 @@ void TstCardSession::sendBytesExecuteChecksExpectedResponse()
     QVERIFY(!cmd.execute(session));
 }
 
+void TstCardSession::twoByteExpectationComparesStatusWordOnly()
+{
+    MockTransport transport;
+    transport.answers[QByteArray::fromHex("80CA9F7F00")] = QByteArray::fromHex("AABBCC9000");
+    transport.answers[QByteArray::fromHex("00B0000000")] = QByteArray::fromHex("6A82");
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+    session.connectCard();
+
+    CommandSendBytes cmd;
+    cmd.commandData = QByteArray::fromHex("80CA9F7F00");
+    cmd.expectedResponse = QByteArray::fromHex("9000");
+    QVERIFY(cmd.execute(session));                      // data + SW 9000
+    cmd.expectedResponse = QByteArray::fromHex("6A82");
+    QVERIFY(!cmd.execute(session));
+    cmd.expectedResponse = QByteArray::fromHex("CC9000");   // longer expectations stay exact
+    QVERIFY(!cmd.execute(session));
+    cmd.expectedResponse = QByteArray::fromHex("AABBCC9000");
+    QVERIFY(cmd.execute(session));
+
+    CommandSendBytes plain;
+    plain.commandData = QByteArray::fromHex("00B0000000");
+    plain.expectedResponse = QByteArray::fromHex("6A82");
+    QVERIFY(plain.execute(session));
+
+    // a one byte answer has no status word
+    transport.answers[QByteArray::fromHex("0102")] = QByteArray::fromHex("90");
+    CommandSendBytes shortAnswer;
+    shortAnswer.commandData = QByteArray::fromHex("0102");
+    shortAnswer.expectedResponse = QByteArray::fromHex("9000");
+    QVERIFY(!shortAnswer.execute(session));
+}
+
+void TstCardSession::atrIsCachedWhileConnected()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+    QVERIFY(session.atr().isEmpty());
+
+    QVERIFY(session.connectCard());
+    QCOMPARE(session.atr(), transport.cardAtr);
+
+    session.disconnectCard();
+    QVERIFY(session.atr().isEmpty());
+}
+
 void TstCardSession::apduIsBuilt()
 {
     CommandApdu apdu;
@@ -233,6 +297,202 @@ void TstCardSession::terminalCommandsDriveSession()
 
     cmd.action = CommandTerminal::ActionType::None;
     QVERIFY(!cmd.execute(session));
+}
+
+void TstCardSession::asyncOperationsRunInTheBackground()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+    QSignalSpy spy(&session, &CardSession::stateChanged);
+
+    session.connectCardAsync();
+    QTRY_VERIFY(session.isConnected());
+    session.resetAsync();
+    QTRY_COMPARE(transport.resetCount, 1);
+    session.resetAsync(true);
+    QTRY_COMPARE(transport.coldResetCount, 1);
+    session.disconnectCardAsync();
+    QTRY_VERIFY(!session.isConnected());
+    QTRY_VERIFY(spy.count() >= 3);
+}
+
+void TstCardSession::readersAsyncEmitsTheList()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    QSignalSpy spy(&session, &CardSession::readersListed);
+
+    session.readersAsync();
+
+    QTRY_COMPARE(spy.count(), 1);
+    QCOMPARE(spy.first().at(0).toStringList(), transport.readerList);
+}
+
+void TstCardSession::queriesDoNotBlockDuringTransmission()
+{
+    MockTransport transport;
+    transport.transmitDelayMs = 300;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+    session.connectCard();
+    QSignalSpy spy(&session, &CardSession::responseReceived);
+
+    session.sendAsync(QByteArray::fromHex("00"));
+    QTest::qWait(50);
+
+    QElapsedTimer timer;
+    timer.start();
+    QVERIFY(session.isConnected());
+    QCOMPARE(session.reader(), QString("Mock Reader 0"));
+    session.setReader("Mock Reader 0");
+    session.readersAsync();
+    QVERIFY2(timer.elapsed() < 100, "state queries must not wait for the card");
+
+    QTRY_COMPARE(spy.count(), 1);
+}
+
+void TstCardSession::changingReaderDropsConnectionInTheBackground()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+    session.connectCard();
+
+    session.setReader("Mock Reader 1");
+
+    QVERIFY(!session.isConnected());
+    QTRY_VERIFY(transport.connectedReader.isEmpty());
+}
+
+void TstCardSession::cardRemovalDisconnects()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    QSignalSpy removed(&session, &CardSession::cardRemoved);
+    QSignalSpy state(&session, &CardSession::stateChanged);
+    QSignalSpy logSpy(&session, &CardSession::log);
+    session.setReader("Mock Reader 0");
+    session.connectCard();
+    QVERIFY(session.isConnected());
+    state.clear();
+
+    transport.cardInserted = false;
+
+    QTRY_COMPARE(removed.count(), 1);
+    QVERIFY(!session.isConnected());
+    QVERIFY(transport.connectedReader.isEmpty());
+    QVERIFY(state.count() >= 1);
+    QVERIFY(!logSpy.isEmpty());
+    QCOMPARE(logSpy.last().at(0).value<LogType>(), LogType::Warning);
+}
+
+void TstCardSession::cardRemovalWhileDisconnectedIsIgnored()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    QSignalSpy removed(&session, &CardSession::cardRemoved);
+    session.setReader("Mock Reader 0");
+
+    transport.cardInserted = false;
+    QTest::qWait(300);
+
+    QCOMPARE(removed.count(), 0);
+}
+
+void TstCardSession::reconnectAfterRemovalWorks()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    QSignalSpy removed(&session, &CardSession::cardRemoved);
+    session.setReader("Mock Reader 0");
+    session.connectCard();
+    transport.cardInserted = false;
+    QTRY_COMPARE(removed.count(), 1);
+
+    QVERIFY(!session.connectCard());            // no card
+    transport.cardInserted = true;
+    QVERIFY(session.connectCard());
+    QTest::qWait(300);
+    QVERIFY(session.isConnected());             // the monitor must not drop a present card
+    QCOMPARE(removed.count(), 1);
+
+    transport.cardInserted = false;
+    QTRY_COMPARE(removed.count(), 2);
+}
+
+void TstCardSession::waitForPresenceSeesInsertionAndRemoval()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+
+    QVERIFY(session.waitForPresence(true, 500));
+
+    transport.cardInserted = false;
+    QVERIFY(session.waitForPresence(false, 500));
+
+    std::thread inserter([&]() { QThread::msleep(150); transport.cardInserted = true; });
+    QVERIFY(session.waitForPresence(true, 2000));
+    inserter.join();
+
+    std::thread remover([&]() { QThread::msleep(150); transport.cardInserted = false; });
+    QVERIFY(session.waitForPresence(false, 2000));
+    remover.join();
+}
+
+void TstCardSession::waitForPresenceTimesOutAndCancels()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+
+    QVERIFY(!session.waitForPresence(true, 100));   // no reader selected
+
+    session.setReader("Mock Reader 0");
+    QElapsedTimer timer;
+    timer.start();
+    QVERIFY(!session.waitForPresence(false, 300));
+    QVERIFY(timer.elapsed() >= 300);
+
+    std::atomic<bool> cancel{false};
+    std::thread canceller([&]() { QThread::msleep(100); cancel = true; });
+    timer.restart();
+    QVERIFY(!session.waitForPresence(false, 5000, &cancel));
+    QVERIFY(timer.elapsed() < 2000);
+    canceller.join();
+}
+
+void TstCardSession::waitCommandsUseThePresence()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+
+    CommandTerminal wait;
+    wait.action = CommandTerminal::ActionType::WaitForCard;
+    QVERIFY(wait.execute(session));
+
+    wait.action = CommandTerminal::ActionType::WaitForRemoval;
+    std::thread remover([&]() { QThread::msleep(100); transport.cardInserted = false; });
+    QVERIFY(wait.execute(session));
+    remover.join();
+}
+
+void TstCardSession::coldResetIsDistinct()
+{
+    MockTransport transport;
+    CardSession session(&transport);
+    session.setReader("Mock Reader 0");
+    session.connectCard();
+
+    QVERIFY(session.reset(true));
+    QCOMPARE(transport.coldResetCount, 1);
+    QCOMPARE(transport.resetCount, 0);
+
+    CommandTerminal cmd;
+    cmd.action = CommandTerminal::ActionType::ColdReset;
+    QVERIFY(cmd.execute(session));
+    QCOMPARE(transport.coldResetCount, 2);
 }
 
 static TestRegistrar<TstCardSession> registrar;

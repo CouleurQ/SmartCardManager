@@ -3,9 +3,12 @@
 
 #include "card/icardtransport.h"
 
+#include <QElapsedTimer>
 #include <QHash>
 #include <QStringList>
 #include <QThread>
+
+#include <atomic>
 
 
 // Scripted card transport for tests: a fixed reader list and canned answers per command.
@@ -24,6 +27,9 @@ public:
     QString connectedReader;
     QList<QByteArray> sent;
     int resetCount = 0;
+    int coldResetCount = 0;
+    std::atomic<bool> cardInserted{true};
+    QByteArray cardAtr = QByteArray::fromHex("3B6800000073C84013009000");
 
     QStringList readers() override { return readerList; }
 
@@ -32,9 +38,15 @@ public:
             emit log(LogType::Error, "unknown reader");
             return false;
         }
+        if (!cardInserted) {
+            emit log(LogType::Error, "no card in reader");
+            return false;
+        }
         connectedReader = reader;
         return true;
     }
+
+    QByteArray atr() const override { return cardAtr; }
 
     bool disconnectCard() override {
         const bool was = !connectedReader.isEmpty();
@@ -47,6 +59,28 @@ public:
             return false;
         ++resetCount;
         return true;
+    }
+
+    bool coldReset() override {
+        if (connectedReader.isEmpty())
+            return false;
+        ++coldResetCount;
+        return true;
+    }
+
+    Presence waitPresenceChange(const QString &, Presence known, int timeoutMs) override {
+        const Presence now = cardInserted ? Presence::Present : Presence::Absent;
+        if (known == Presence::Unknown)
+            return now;
+        QElapsedTimer timer;
+        timer.start();
+        while (timer.elapsed() < timeoutMs) {
+            const Presence p = cardInserted ? Presence::Present : Presence::Absent;
+            if (p != known)
+                return p;
+            QThread::msleep(5);
+        }
+        return known;
     }
 
     bool isConnected() const override { return !connectedReader.isEmpty(); }
