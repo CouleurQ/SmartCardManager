@@ -1,0 +1,168 @@
+name: Build packages
+
+# Reusable: builds and packages SmartCardManager for Linux (deb, AppImage), macOS and Windows.
+
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: Version of the packages
+        value: ${{ jobs.version.outputs.version }}
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: '6.8.*'
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          elif described="$(git describe --tags --match 'v[0-9]*' 2>/dev/null)"; then
+            version="${described#v}"
+          else
+            version="0.1.0-dev.$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+  linux-deb:
+    needs: version
+    runs-on: ubuntu-24.04
+    env:
+      APP_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev qt6-svg-dev libpcsclite-dev pkg-config g++ make dpkg-dev
+      - name: Build
+        run: |
+          mkdir -p build && cd build
+          qmake6 ../SmartCardManager.pro CONFIG+=release
+          make -j"$(nproc)"
+      - name: Package
+        run: ./packaging/linux/make-deb.sh build/SmartCardManager "$APP_VERSION" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-linux-deb
+          path: dist/*.deb
+          retention-days: 14
+
+  # Built on the oldest runner so the AppImage runs on older distributions. libpcsclite is not bundled:
+  # it has to match the pcscd of the host system.
+  linux-appimage:
+    needs: version
+    runs-on: ubuntu-22.04
+    env:
+      APP_VERSION: ${{ needs.version.outputs.version }}
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcsclite-dev pkg-config g++ make libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-shape0
+      - name: Build
+        run: |
+          mkdir -p build && cd build
+          qmake ../SmartCardManager.pro CONFIG+=release
+          make -j"$(nproc)"
+      - name: Package
+        run: |
+          mkdir -p tools dist
+          base=https://github.com/linuxdeploy
+          curl -fsSL -o tools/linuxdeploy "$base/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+          curl -fsSL -o tools/linuxdeploy-plugin-qt "$base/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage"
+          chmod +x tools/*
+          cp res/icons/logo.svg tools/smartcardmanager.svg
+          export PATH="$PWD/tools:$PATH"
+          export QMAKE="$(command -v qmake)"
+          export EXTRA_QT_PLUGINS=svg
+          tools/linuxdeploy --appdir AppDir --plugin qt \
+            --executable build/SmartCardManager \
+            --desktop-file packaging/linux/smartcardmanager.desktop \
+            --icon-file tools/smartcardmanager.svg \
+            --exclude-library 'libpcsclite*' \
+            --output appimage
+          mv SmartCardManager*.AppImage "dist/SmartCardManager-${APP_VERSION}-linux-x86_64.AppImage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-linux-appimage
+          path: dist/*.AppImage
+          retention-days: 14
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    env:
+      APP_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+      - name: Build
+        run: |
+          mkdir -p build && cd build
+          qmake ../SmartCardManager.pro CONFIG+=release
+          make -j"$(sysctl -n hw.ncpu)"
+      - name: Package
+        run: |
+          cd build
+          macdeployqt SmartCardManager.app -dmg
+          mkdir -p ../dist
+          mv SmartCardManager.dmg "../dist/SmartCardManager-${APP_VERSION}-macos.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-macos
+          path: dist/*.dmg
+          retention-days: 14
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      APP_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          cache: true
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build
+        shell: cmd
+        run: |
+          qmake SmartCardManager.pro CONFIG+=release
+          nmake release
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "SmartCardManager-$env:APP_VERSION-windows-x64"
+          New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
+          Copy-Item release/SmartCardManager.exe "dist/$name/"
+          windeployqt --release --no-translations "dist/$name/SmartCardManager.exe"
+          Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
+          Remove-Item -Recurse -Force "dist/$name"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-windows
+          path: dist/*.zip
+          retention-days: 14

@@ -3,7 +3,7 @@
 
 #include "icardtransport.h"
 
-#include "pcsclite.h"
+#include "pcscplatform.h"
 
 #include <QMutex>
 

@@ -1,0 +1,18 @@
+name: Snapshot
+
+# Every push to main: test, then build all packages as downloadable workflow artifacts (no release).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+  package:
+    needs: ci
+    uses: ./.github/workflows/build.yml

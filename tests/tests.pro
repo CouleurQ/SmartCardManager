@@ -6,8 +6,19 @@ TARGET = tst_smartcardmanager
 
 DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000
 
-CONFIG += link_pkgconfig
-PKGCONFIG += libpcsclite
+unix:!macx {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += libpcsclite
+}
+macx {
+    LIBS += -framework PCSC
+    CONFIG -= app_bundle
+}
+win32 {
+    LIBS += -lwinscard
+    DEFINES -= UNICODE _UNICODE
+    DEFINES += NOMINMAX
+}
 INCLUDEPATH += $$PWD/../src $$PWD/../src/controls
 
 # Application sources under test (everything except main.cpp).
@@ -49,6 +60,7 @@ HEADERS += \
     $$APP/card/cardsession.h \
     $$APP/card/icardtransport.h \
     $$APP/card/pcsctransport.h \
+    $$APP/card/pcscplatform.h \
     $$APP/commands/command.h \
     $$APP/commands/commandapdu.h \
     $$APP/commands/commandfactory.h \

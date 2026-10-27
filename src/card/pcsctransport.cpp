@@ -1,8 +1,5 @@
 #include "pcsctransport.h"
 
-#include <pcsclite.h>
-#include <winscard.h>
-
 #include <QMutexLocker>
 
 #include <cstring>
