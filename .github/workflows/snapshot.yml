@@ -4,7 +4,7 @@ name: Snapshot
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/ci-release]  # TEMP
   workflow_dispatch:
 
 permissions:

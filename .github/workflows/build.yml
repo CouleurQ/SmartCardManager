@@ -158,7 +158,7 @@ jobs:
           $name = "SmartCardManager-$env:APP_VERSION-windows-x64"
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
           Copy-Item release/SmartCardManager.exe "dist/$name/"
-          windeployqt --release --no-translations "dist/$name/SmartCardManager.exe"
+          windeployqt --release --no-translations --no-opengl-sw --no-system-d3d-compiler --no-system-dxc-compiler "dist/$name/SmartCardManager.exe"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           Remove-Item -Recurse -Force "dist/$name"
       - uses: actions/upload-artifact@v4
