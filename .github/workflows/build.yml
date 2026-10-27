@@ -108,7 +108,7 @@ jobs:
 
   macos:
     needs: version
-    runs-on: macos-latest
+    runs-on: macos-15
     env:
       APP_VERSION: ${{ needs.version.outputs.version }}
     steps:
