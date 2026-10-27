@@ -120,7 +120,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p build && cd build
-          qmake ../SmartCardManager.pro CONFIG+=release
+          qmake ../SmartCardManager.pro CONFIG+=release "QMAKE_CXXFLAGS+=-include arm_acle.h"
           make -j"$(sysctl -n hw.ncpu)"
       - name: Package
         run: |

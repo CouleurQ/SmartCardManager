@@ -33,15 +33,16 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           cache: true
+      # arm_acle.h: Qt's qyieldcpu.h uses __yield() without including it (Apple clang on arm64)
       - name: Build
         run: |
           mkdir -p build/release && cd build/release
-          qmake ../../SmartCardManager.pro CONFIG+=release
+          qmake ../../SmartCardManager.pro CONFIG+=release "QMAKE_CXXFLAGS+=-include arm_acle.h"
           make -j"$(sysctl -n hw.ncpu)"
       - name: Test
         run: |
           mkdir -p build/tests && cd build/tests
-          qmake ../../tests/tests.pro CONFIG+=debug
+          qmake ../../tests/tests.pro CONFIG+=debug "QMAKE_CXXFLAGS+=-include arm_acle.h"
           make -j"$(sysctl -n hw.ncpu)"
           QT_QPA_PLATFORM=offscreen ./tst_smartcardmanager
 

@@ -12,6 +12,7 @@
 #include "commands/commandviewapdu.h"
 #include "commands/commandviewterminal.h"
 
+#include <QFileInfo>
 #include <QTest>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -294,6 +295,8 @@ void TstRunScript::contextMenuOnItemOffersItemActions()
 void TstRunScript::loadDefaultScriptFile()
 {
     const QString path = QString(TEST_RES_DIR) + "/defaultScriptFile.json";
+    if (!QFileInfo::exists(path))
+        QSKIP("res/defaultScriptFile.json is not part of the repository");
     QSignalSpy logs(tab, &TabHandlerRunScript::logString);
 
     tab->_buttonActionLoad(path);
