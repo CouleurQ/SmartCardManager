@@ -6,6 +6,7 @@
 
 #include <QToolBar>
 #include <QTabWidget>
+#include <QFrame>
 #include <QLabel>
 #include <QDockWidget>
 #include <QTextEdit>
@@ -35,14 +36,23 @@ MainWindow::MainWindow(CardSession *session, QWidget *parent)
     toolbar->insertWidget(ui->actionRefresh, cardReaderCombo);
 
     // Statusbar
-    statusLine = new QLineEdit("Ready");
-    statusLine->setReadOnly(true);
-    statusLine->setFocusPolicy(Qt::NoFocus);
-    statusLine->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    statusLine->setStyleSheet("background: transparent; border: none; color: black;");
-    statusLine->setFrame(false);
-    statusLine->setMinimumWidth(150);
+    auto separator = [] {
+        auto *line = new QFrame;
+        line->setFrameShape(QFrame::VLine);
+        line->setFrameShadow(QFrame::Sunken);
+        return line;
+    };
+    statusLine = new QLabel("Ready");
+    channelStatus = new QLabel;
+    channelStatus->setObjectName("channelStatus");
+    secureChannelStatus = new QLabel;
+    secureChannelStatus->setObjectName("secureChannelStatus");
     ui->statusbar->addWidget(statusLine);
+    ui->statusbar->addWidget(separator());
+    ui->statusbar->addWidget(channelStatus);
+    ui->statusbar->addWidget(separator());
+    ui->statusbar->addWidget(secureChannelStatus);
+    ui->statusbar->addWidget(new QWidget, 1);
 
     QSvgWidget* svgIcon = new QSvgWidget(":/res/icons/status_busy.svg");
     svgIcon->setFixedSize(12, 12);
@@ -66,6 +76,9 @@ MainWindow::MainWindow(CardSession *session, QWidget *parent)
     // TabViews
     tabSendCommand = new TabHandlerSendCommand(ui->tabSendCommand, session, this);
     tabRunScript = new TabHandlerRunScript(ui->tabRunScript, session, this);
+
+    javaCardView = new JavaCardView(session);
+    ui->verticalLayoutJavaCard->addWidget(javaCardView);
 
     atrView = new AtrView;
     atrView->setObjectName("tabAtr");
@@ -93,6 +106,13 @@ MainWindow::MainWindow(CardSession *session, QWidget *parent)
     connect(tabSendCommand, &TabHandlerSendCommand::logBytes, this, &MainWindow::logBytes);
     connect(tabSendCommand, &TabHandlerSendCommand::logString, this, &MainWindow::logString);
     connect(tabSendCommand, &TabHandlerSendCommand::update, this, &MainWindow::updateUiState);
+    connect(javaCardView, &JavaCardView::logBytes, this, &MainWindow::logBytes);
+    connect(javaCardView, &JavaCardView::logString, this, &MainWindow::logString);
+    connect(javaCardView, &JavaCardView::stateChanged, this, [this] {
+        channelStatus->setText(QString("Logical Channel: %1").arg(javaCardView->workingChannel(), 2, 10, QChar('0')));
+        secureChannelStatus->setText(QString("Secure Channel: %1").arg(javaCardView->secureChannelText()));
+    });
+    emit javaCardView->stateChanged();
     connect(tabRunScript, &TabHandlerRunScript::logBytes, this, &MainWindow::logBytes);
     connect(tabRunScript, &TabHandlerRunScript::logString, this, &MainWindow::logString);
     connect(tabRunScript, &TabHandlerRunScript::update, this, &MainWindow::updateUiState);
@@ -138,6 +158,7 @@ void MainWindow::updateUiState()
     if (atr != atrView->atr())
         atrView->setAtr(atr);
     ui->tabWidget->setTabVisible(ui->tabWidget->indexOf(atrView), connected);
+    javaCardView->setConnected(connected);
 
     // Statusbar
     connectionIcon->load(QString(connected ? ":/res/icons/action_connect.svg" : ":/res/icons/action_disconnect.svg"));

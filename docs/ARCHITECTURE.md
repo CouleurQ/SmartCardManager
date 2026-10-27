@@ -45,6 +45,10 @@ src/
     icardtransport.h       ICardTransport: readers/connect/disconnect/reset/transmit (+ log signal)
     pcsctransport.*        PcscTransport: pcsc-lite implementation
     atrparser.*            AtrParser::parse: ISO 7816-3 ATR decoding (interface/historical bytes, TCK)
+    gpcoding.*             GlobalPlatform codings (life cycle, privileges, key type/usage/access, security level)
+    gpregistry.h           Registry entries, key information and GET DATA objects of a card
+    gpauthparams.h         Parameters of a secure channel (SCP01/02/03/11, keys, security level)
+    gpdemodata.*           Simulated card content shown until the GlobalPlatform commands are implemented
     cardsession.*          CardSession: selected reader + connection state, serialises transport access,
                            sendAsync() runs transmissions on a worker thread
   commands/
@@ -64,6 +68,12 @@ src/
     tabhandlersendcommand.*  "Send Command" tab controller (list of raw commands, send, load/save)
     tabhandlerrunscript.*    "Run Script" tab controller (command list + editor, load/save)
     atrview.*              "ATR" tab (shown while connected): colour coded ATR, summary, byte-by-byte tree
+    javacardview.*         "Java Card" tab: registry tree and key list around a middle panel that switches
+                           between the action links (logical channels, secure channel, commands, card content, keys), the secure channel form, the send panels and the properties
+                           page (double-click a registry entry: properties plus Delete/Set Status/Install)
+                           (management actions not implemented yet; Open Secure Channel shows simulated content)
+    gpauthdialog.*         Secure channel form (embedded in the tab): protocol, security level, keys
+    gpsendpanel.*          Send APDU / Send Bytes form with status word and response
     logview.*              QTableView log of reader/card traffic, SVG direction icons
     aboutdialog.*
 res/                       icons, forms, JSON schemas

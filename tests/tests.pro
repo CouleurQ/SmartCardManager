@@ -32,6 +32,11 @@ SOURCES += \
     $$APP/io/scriptfile.cpp \
     $$APP/ui/aboutdialog.cpp \
     $$APP/ui/atrview.cpp \
+    $$APP/card/gpcoding.cpp \
+    $$APP/card/gpdemodata.cpp \
+    $$APP/ui/gpauthdialog.cpp \
+    $$APP/ui/gpsendpanel.cpp \
+    $$APP/ui/javacardview.cpp \
     $$APP/ui/listreorderhelper.cpp \
     $$APP/ui/logview.cpp \
     $$APP/ui/mainwindow.cpp \
@@ -62,6 +67,13 @@ HEADERS += \
     $$APP/io/scriptfile.h \
     $$APP/ui/aboutdialog.h \
     $$APP/ui/atrview.h \
+    $$APP/card/gpauthparams.h \
+    $$APP/card/gpcoding.h \
+    $$APP/card/gpdemodata.h \
+    $$APP/card/gpregistry.h \
+    $$APP/ui/gpauthdialog.h \
+    $$APP/ui/gpsendpanel.h \
+    $$APP/ui/javacardview.h \
     $$APP/ui/listreorderhelper.h \
     $$APP/ui/logview.h \
     $$APP/ui/mainwindow.h \
@@ -88,6 +100,7 @@ SOURCES += \
     main.cpp \
     tst_utility.cpp \
     tst_atr.cpp \
+    tst_javacard.cpp \
     tst_commands.cpp \
     tst_hexedit.cpp \
     tst_views.cpp \

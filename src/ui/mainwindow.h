@@ -9,6 +9,7 @@
 
 #include "card/cardsession.h"
 #include "atrview.h"
+#include "javacardview.h"
 #include "logview.h"
 #include "tabhandlersendcommand.h"
 #include "tabhandlerrunscript.h"
@@ -36,9 +37,12 @@ private:
 
     LogView *logView;
     QComboBox *cardReaderCombo;
-    QLineEdit *statusLine;
+    QLabel *statusLine;
+    QLabel *channelStatus;
+    QLabel *secureChannelStatus;
     QSvgWidget *connectionIcon;
     AtrView *atrView;
+    JavaCardView *javaCardView;
     TabHandlerSendCommand *tabSendCommand;
     TabHandlerRunScript *tabRunScript;
     bool busy = false;      // a connect/disconnect/reset is running in the background

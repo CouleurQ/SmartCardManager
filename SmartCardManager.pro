@@ -29,6 +29,11 @@ SOURCES += \
     src/io/scriptfile.cpp \
     src/ui/aboutdialog.cpp \
     src/ui/atrview.cpp \
+    src/card/gpcoding.cpp \
+    src/card/gpdemodata.cpp \
+    src/ui/gpauthdialog.cpp \
+    src/ui/gpsendpanel.cpp \
+    src/ui/javacardview.cpp \
     src/ui/listreorderhelper.cpp \
     src/ui/logview.cpp \
     src/ui/mainwindow.cpp \
@@ -59,6 +64,13 @@ HEADERS += \
     src/io/scriptfile.h \
     src/ui/aboutdialog.h \
     src/ui/atrview.h \
+    src/card/gpauthparams.h \
+    src/card/gpcoding.h \
+    src/card/gpdemodata.h \
+    src/card/gpregistry.h \
+    src/ui/gpauthdialog.h \
+    src/ui/gpsendpanel.h \
+    src/ui/javacardview.h \
     src/ui/listreorderhelper.h \
     src/ui/logview.h \
     src/ui/mainwindow.h \

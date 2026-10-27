@@ -362,8 +362,13 @@ void TabHandlerSendCommand::onResponseReceived(const QByteArray &command, const 
 {
     Q_UNUSED(command)
 
+    // other tabs send through the same session
+    if (!sentPending)
+        return;
+    sentPending = false;
+
     // the response belongs to the command that was sent, not to whatever is selected now
-    if (!sentPending || sentIndex == QPersistentModelIndex(listView->currentIndex()))
+    if (sentIndex == QPersistentModelIndex(listView->currentIndex()))
         showResponse(response);
     if (response.length() >= 2)
         emit logBytes(LogType::CardRsp, response);

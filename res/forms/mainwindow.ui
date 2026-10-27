@@ -437,24 +437,23 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_3">
+      <widget class="QWidget" name="tabJavaCard">
        <attribute name="title">
         <string>Java Card</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
-        <item>
-         <widget class="QSplitter" name="splitter">
-          <property name="orientation">
-           <enum>Qt::Orientation::Horizontal</enum>
-          </property>
-          <widget class="QWidget" name="rightPanel">
-           <layout class="QVBoxLayout" name="verticalLayoutRight"/>
-          </widget>
-          <widget class="QWidget" name="verticalLayoutWidget">
-           <layout class="QVBoxLayout" name="verticalLayout_3"/>
-          </widget>
-         </widget>
-        </item>
+       <layout class="QVBoxLayout" name="verticalLayoutJavaCard">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
        </layout>
       </widget>
      </widget>
