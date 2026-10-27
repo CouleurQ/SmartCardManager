@@ -4,7 +4,7 @@ name: Snapshot
 
 on:
   push:
-    branches: [main, feature/ci-release]  # TEMP
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,4 +14,5 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
   package:
+    needs: ci
     uses: ./.github/workflows/build.yml
