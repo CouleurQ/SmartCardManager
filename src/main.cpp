@@ -9,11 +9,14 @@
 #include <QSocketNotifier>
 #include <QDir>
 
+#ifdef Q_OS_UNIX
 #include <csignal>
 #include <unistd.h>
 #include <sys/socket.h>
+#endif
 
 
+#ifdef Q_OS_UNIX
 namespace {
 int signalFd[2] = {-1, -1};
 
@@ -48,6 +51,7 @@ void installSignalHandlers(QObject *parent)
     sigaction(SIGTERM, &action, nullptr);
 }
 }
+#endif
 
 
 int main(int argc, char *argv[])
@@ -55,13 +59,20 @@ int main(int argc, char *argv[])
     QApplication application(argc, argv);
 
     application.setApplicationName("SmartCardManager");
-    application.setApplicationVersion("0.1");
+    application.setApplicationVersion(APP_VERSION);
     application.setOrganizationName("CouleurQ");
     application.setOrganizationDomain("github.com");
 
+#ifdef Q_OS_UNIX
     installSignalHandlers(&application);
+#endif
 
+#ifdef Q_OS_WIN
+    // named pipe: a plain name, no path
+    const QString socketPath = QCoreApplication::applicationName();
+#else
     const QString socketPath = QDir::tempPath() + QDir::separator() + QCoreApplication::applicationName();
+#endif
     QLocalSocket socket;
     socket.connectToServer(socketPath);
 

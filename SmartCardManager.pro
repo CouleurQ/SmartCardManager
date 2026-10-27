@@ -1,7 +1,24 @@
 QT       += core gui widgets network svgwidgets
 
-CONFIG += c++17 link_pkgconfig
-PKGCONFIG += libpcsclite
+CONFIG += c++17
+
+# PC/SC: pcsc-lite on Linux, the PCSC framework on macOS, winscard.dll on Windows
+unix:!macx {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += libpcsclite
+}
+macx: LIBS += -framework PCSC
+win32 {
+    LIBS += -lwinscard
+    # the PC/SC code uses the ANSI (SCardConnectA, ...) variants
+    DEFINES -= UNICODE _UNICODE
+    DEFINES += NOMINMAX
+}
+
+# Shown in the About dialog; CI passes the version through the environment (release tag or snapshot)
+APP_VERSION = $$(APP_VERSION)
+isEmpty(APP_VERSION): APP_VERSION = 0.1.0
+DEFINES += APP_VERSION=\\\"$$APP_VERSION\\\"
 
 # disables all the APIs deprecated before Qt 6.0.0
 DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000
@@ -46,6 +63,7 @@ HEADERS += \
     src/card/cardsession.h \
     src/card/icardtransport.h \
     src/card/pcsctransport.h \
+    src/card/pcscplatform.h \
     src/commands/command.h \
     src/commands/commandapdu.h \
     src/commands/commandfactory.h \
