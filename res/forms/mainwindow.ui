@@ -1,0 +1,683 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="styleSheet">
+       <string notr="true">QTabBar::tab:selected {
+    font-weight: bold;
+}</string>
+      </property>
+      <property name="tabShape">
+       <enum>QTabWidget::TabShape::Rounded</enum>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <property name="elideMode">
+       <enum>Qt::TextElideMode::ElideNone</enum>
+      </property>
+      <property name="tabBarAutoHide">
+       <bool>false</bool>
+      </property>
+      <widget class="QWidget" name="tabSendCommand">
+       <attribute name="title">
+        <string>Send Command</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayoutTop">
+          <item>
+           <widget class="QPushButton" name="sendCommandButtonLoad">
+            <property name="text">
+             <string>&amp;Load</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="sendCommandButtonSave">
+            <property name="text">
+             <string>S&amp;ave</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="sendCommandButtonAdd">
+            <property name="text">
+             <string>A&amp;dd</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacerButtons">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Policy::Fixed</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="sendCommandLineEditFilename">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::FocusPolicy::NoFocus</enum>
+            </property>
+            <property name="autoFillBackground">
+             <bool>false</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">color: black;</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>No command file loaded</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QSplitter" name="splitterTab">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <widget class="QWidget" name="rightPanel_2">
+           <layout class="QVBoxLayout" name="verticalLayoutRightLeft">
+            <item>
+             <widget class="QListView" name="sendCommandListView">
+              <property name="acceptDrops">
+               <bool>true</bool>
+              </property>
+              <property name="editTriggers">
+               <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+              </property>
+              <property name="showDropIndicator" stdset="0">
+               <bool>true</bool>
+              </property>
+              <property name="dragDropMode">
+               <enum>QAbstractItemView::DragDropMode::DropOnly</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="verticalLayoutWidget_2">
+           <layout class="QVBoxLayout" name="verticalLayoutRight_2">
+            <item>
+             <widget class="QLabel" name="label_2">
+              <property name="text">
+               <string>Name</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="sendCommandLineEditCommandName"/>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_3">
+              <property name="text">
+               <string>Command</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="HexEdit" name="sendCommandHexEditCommandApdu" native="true">
+              <property name="font">
+               <font>
+                <family>Monospace</family>
+               </font>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelSendSw">
+              <property name="text">
+               <string>Status Word</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayoutSw">
+              <item>
+               <widget class="QLineEdit" name="sendCommandLineEditSw">
+                <property name="maximumSize">
+                 <size>
+                  <width>70</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <family>Monospace</family>
+                 </font>
+                </property>
+                <property name="readOnly">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="sendCommandLineEditSwText">
+                <property name="readOnly">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelSendResponse">
+              <property name="text">
+               <string>Response</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTextEdit" name="sendCommandTextEditResponse">
+              <property name="font">
+               <font>
+                <family>Monospace</family>
+               </font>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Vertical</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <item>
+               <spacer name="horizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="sendCommandButtonSend">
+                <property name="text">
+                 <string>&amp;Send</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabRunScript">
+       <attribute name="title">
+        <string>Run Script</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="runScriptVerticalLayout">
+        <item>
+         <layout class="QHBoxLayout" name="runScriptHorizontalLayoutTop">
+          <item>
+           <widget class="QPushButton" name="runScriptButtonLoad">
+            <property name="text">
+             <string>&amp;Load</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="runScriptButtonImport">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>&amp;Import</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="runScriptButtonSave">
+            <property name="text">
+             <string>S&amp;ave</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="runScriptHorizontalSpacerButtons">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Policy::Fixed</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="runScriptLineEditFilename">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="focusPolicy">
+             <enum>Qt::FocusPolicy::NoFocus</enum>
+            </property>
+            <property name="autoFillBackground">
+             <bool>false</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">color: black;</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="placeholderText">
+             <string>No script file loaded</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QSplitter" name="runScriptSplitterTab">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <widget class="QWidget" name="runScriptRightPanel">
+           <layout class="QVBoxLayout" name="runScriptVerticalLayoutRightLeft">
+            <item>
+             <widget class="QListView" name="runScriptListView">
+              <property name="acceptDrops">
+               <bool>true</bool>
+              </property>
+              <property name="editTriggers">
+               <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
+              </property>
+              <property name="showDropIndicator" stdset="0">
+               <bool>true</bool>
+              </property>
+              <property name="dragDropMode">
+               <enum>QAbstractItemView::DragDropMode::DropOnly</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="runScriptVerticalLayoutWidget">
+           <layout class="QVBoxLayout" name="runScriptVerticalLayoutRight">
+            <item>
+             <layout class="QHBoxLayout" name="runScriptHorizontalLayout">
+              <item>
+               <widget class="QPushButton" name="runScriptButtonAdd">
+                <property name="text">
+                 <string>A&amp;dd</string>
+                </property>
+                <property name="checkable">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="runScriptHorizontalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Orientation::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="runScriptCheckStopOnError">
+                <property name="toolTip">
+                 <string>Stop the script when a command fails or its response does not match the expected response</string>
+                </property>
+                <property name="text">
+                 <string>Stop on &amp;error</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runScriptButtonRun">
+                <property name="text">
+                 <string>&amp;Run</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runScriptButtonStep">
+                <property name="text">
+                 <string>&amp;Step</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="runScriptButtonStop">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="text">
+                 <string>S&amp;top</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
+             <widget class="QStackedWidget" name="runScriptStackedWidget">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::Shape::NoFrame</enum>
+              </property>
+              <property name="currentIndex">
+               <number>-1</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabJavaCard">
+       <attribute name="title">
+        <string>Java Card</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayoutJavaCard">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>19</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="separator"/>
+    <addaction name="actionSettings"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="actionCopy"/>
+    <addaction name="actionPaste"/>
+    <addaction name="actionClear"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionHelp"/>
+    <addaction name="separator"/>
+    <addaction name="actionAbout"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionLogWindow"/>
+    <addaction name="separator"/>
+    <addaction name="actionTab1"/>
+    <addaction name="actionTab2"/>
+    <addaction name="actionTab3"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuView"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QDockWidget" name="dockWidget">
+   <property name="windowTitle">
+    <string>Log Window</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>8</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents">
+    <layout class="QGridLayout" name="gridLayout_2">
+     <item row="0" column="0">
+      <widget class="QTreeView" name="logView"/>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="actionConnect"/>
+   <addaction name="actionDisconnect"/>
+   <addaction name="actionReset"/>
+   <addaction name="separator"/>
+   <addaction name="actionRefresh"/>
+  </widget>
+  <action name="actionExit">
+   <property name="text">
+    <string>E&amp;xit</string>
+   </property>
+  </action>
+  <action name="actionLogWindow">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Log &amp;Window</string>
+   </property>
+  </action>
+  <action name="actionTab1">
+   <property name="text">
+    <string>Send AAPDU</string>
+   </property>
+  </action>
+  <action name="actionTab2">
+   <property name="text">
+    <string>Run &amp;Script</string>
+   </property>
+  </action>
+  <action name="actionTab3">
+   <property name="text">
+    <string>Java &amp;Card</string>
+   </property>
+  </action>
+  <action name="actionHelp">
+   <property name="text">
+    <string>&amp;Help</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>&amp;About...</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>&amp;Settings</string>
+   </property>
+  </action>
+  <action name="actionCopy">
+   <property name="text">
+    <string>&amp;Copy</string>
+   </property>
+  </action>
+  <action name="actionPaste">
+   <property name="text">
+    <string>&amp;Paste</string>
+   </property>
+  </action>
+  <action name="actionClear">
+   <property name="text">
+    <string>Clear</string>
+   </property>
+  </action>
+  <action name="actionConnect">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources.qrc">
+     <normaloff>:/res/icons/action_connect.svg</normaloff>:/res/icons/action_connect.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Connect</string>
+   </property>
+   <property name="toolTip">
+    <string>Connect the attached smart card</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionDisconnect">
+   <property name="icon">
+    <iconset resource="../resources.qrc">
+     <normaloff>:/res/icons/action_disconnect.svg</normaloff>:/res/icons/action_disconnect.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Disconnect</string>
+   </property>
+   <property name="toolTip">
+    <string>Disconnect smart card from the reader</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionReset">
+   <property name="icon">
+    <iconset resource="../resources.qrc">
+     <normaloff>:/res/icons/action_reset.svg</normaloff>:/res/icons/action_reset.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Reset</string>
+   </property>
+   <property name="toolTip">
+    <string>Reset the connected smart card</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionRefresh">
+   <property name="icon">
+    <iconset resource="../resources.qrc">
+     <normaloff>:/res/icons/action_refresh.svg</normaloff>:/res/icons/action_refresh.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Refresh</string>
+   </property>
+   <property name="toolTip">
+    <string>Reload the list of attached PCSC smart card readers</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>HexEdit</class>
+   <extends>QWidget</extends>
+   <header>hexedit.h</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+ </tabstops>
+ <resources>
+  <include location="../resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

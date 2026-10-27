@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: '6.8.*'
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev qt6-svg-dev libpcsclite-dev pkg-config g++ make
+      - name: Build
+        run: ./make.sh build
+      - name: Test
+        run: ./make.sh test
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+      # arm_acle.h: Qt's qyieldcpu.h uses __yield() without including it (Apple clang on arm64)
+      - name: Build
+        run: |
+          mkdir -p build/release && cd build/release
+          qmake ../../SmartCardManager.pro CONFIG+=release "QMAKE_CXXFLAGS+=-include arm_acle.h"
+          make -j"$(sysctl -n hw.ncpu)"
+      - name: Test
+        run: |
+          mkdir -p build/tests && cd build/tests
+          qmake ../../tests/tests.pro CONFIG+=debug "QMAKE_CXXFLAGS+=-include arm_acle.h"
+          make -j"$(sysctl -n hw.ncpu)"
+          QT_QPA_PLATFORM=offscreen ./tst_smartcardmanager
+
+  # Build only: the tests rely on '#define private public', which MSVC encodes in the symbol names
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          cache: true
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build
+        shell: cmd
+        run: |
+          qmake SmartCardManager.pro CONFIG+=release
+          nmake release

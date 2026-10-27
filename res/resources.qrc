@@ -1,0 +1,16 @@
+<RCC>
+  <qresource prefix="/res">
+    <file>icons/log_info.svg</file>
+    <file>icons/log_error.svg</file>
+    <file>icons/log_warning.svg</file>
+    <file>icons/log_card_command.svg</file>
+    <file>icons/log_card_response.svg</file>
+    <file>icons/log_terminal.svg</file>
+    <file>icons/logo.svg</file>
+    <file>icons/action_connect.svg</file>
+    <file>icons/action_disconnect.svg</file>
+    <file>icons/action_reset.svg</file>
+    <file>icons/action_refresh.svg</file>
+    <file>icons/status_busy.svg</file>
+  </qresource>
+</RCC>

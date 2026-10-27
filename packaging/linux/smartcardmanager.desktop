@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SmartCardManager
+GenericName=Smart card manager
+Comment=Smart card communication and Java Card management
+Exec=SmartCardManager
+Icon=smartcardmanager
+Terminal=false
+Categories=Utility;Development;
